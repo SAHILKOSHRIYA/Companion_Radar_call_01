@@ -63,6 +63,7 @@ def get_model() -> WhisperModel:
             config.WHISPER_MODEL,
             device=config.WHISPER_DEVICE,
             compute_type=config.WHISPER_COMPUTE_TYPE,
+            cpu_threads=config.WHISPER_CPU_THREADS,  # single-threaded per worker
         )
     return _model
 

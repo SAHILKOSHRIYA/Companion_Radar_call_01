@@ -27,6 +27,10 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base.en")
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
 WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
 WHISPER_BEAM_SIZE = int(os.getenv("WHISPER_BEAM_SIZE", "5"))
+# Threads PER worker process. We parallelise across calls with multiple worker
+# PROCESSES, so each Whisper model should stay single-threaded — otherwise
+# workers x CT2-threads oversubscribes the CPU and everything thrashes.
+WHISPER_CPU_THREADS = int(os.getenv("WHISPER_CPU_THREADS", "1"))
 
 # ---------------------------------------------------------------------------
 # Analysis engine (hybrid: Claude default, Ollama fallback)
