@@ -148,16 +148,46 @@ def _analyze_heuristic(customer: str, agent: str, transcript: dict) -> dict:
     shift_turn = pos_turn if end_mood == "positive" else neg_turn
     start_ev = _ev(cust_turns[0]) if cust_turns else _empty_ev()
 
-    # Resolution
-    res_turn, _ = first_turn_matching(RESOLVED_WORDS)
-    escalated = any(w in text_all for w in ["escalate", "manager", "supervisor"])
+    # Resolution — outcome-based, not just keyword spotting.
+    # These calls typically END with the agent completing the task and closing
+    # courteously ("your balance is...", "I've ordered your replacement",
+    # "your appointment is scheduled", "is there anything else... have a great
+    # day"). So we treat a clean close with no friction as RESOLVED, and only
+    # step down when there's real evidence of a problem.
+    escalated = any(w in text_all for w in ["escalate", "speak to a manager",
+                                            "speak to your manager", "supervisor", "complaint"])
+    CLOSE_CUES = ["anything else", "have a great day", "have a good day",
+                  "thank you for calling", "is that everything", "all set",
+                  "you're welcome", "glad to help"]
+    ACTION_CUES = ["has been scheduled", "have been transferred", "has been transferred",
+                   "your balance is", "i've ordered", "i have ordered", "your new card",
+                   "has been processed", "has been reversed", "has been refunded",
+                   "i've updated", "i have updated", "confirmed", "your appointment"]
+    RESOLVED_WORDS_EXT = RESOLVED_WORDS | {"scheduled", "transferred", "ordered", "updated"}
+
+    last_cust = cust_turns[-1]["text"].lower() if cust_turns else ""
+    customer_unhappy_at_end = any(w in last_cust for w in NEG_WORDS) or \
+        any(p in last_cust for p in ["still", "not right", "didn't work", "doesn't work",
+                                     "that's not", "no that", "call back", "again"])
+
+    res_turn, _ = first_turn_matching(RESOLVED_WORDS_EXT | set(w for c in ACTION_CUES for w in [c]))
+    action_turn, _ = first_turn_matching(ACTION_CUES, speaker="agent")
+    close_turn, _ = first_turn_matching(CLOSE_CUES, speaker="agent")
+    had_close = close_turn is not None
+    had_action = action_turn is not None or res_turn is not None
+
     if escalated:
         status = "escalated"
-    elif res_turn:
+    elif customer_unhappy_at_end:
+        status = "unresolved"
+    elif had_action or had_close:
         status = "resolved"
     else:
         status = "unclear"
-    res_ev = _ev(res_turn) if res_turn else (_ev(turns[-1]) if turns else _empty_ev())
+
+    # Cite the moment that best supports the resolution judgment.
+    res_turn = (action_turn or res_turn or close_turn or (turns[-1] if turns else None))
+    res_ev = _ev(res_turn) if res_turn else _empty_ev()
 
     # Did the agent have to ask the same thing more than once?
     agent_turns = [t for t in turns if t["speaker"] == "agent"]
@@ -179,8 +209,10 @@ def _analyze_heuristic(customer: str, agent: str, transcript: dict) -> dict:
         reasons.append(f"{neg_count} negative cue(s) from customer")
     if status == "escalated":
         score += 30; reasons.append("escalated to a manager")
+    elif status == "unresolved":
+        score += 28; reasons.append("customer left with an unmet need")
     elif status == "unclear":
-        score += 18; reasons.append("resolution not confirmed on the call")
+        score += 15; reasons.append("resolution not confirmed on the call")
     if shifted and end_mood == "negative":
         score += 20; reasons.append("customer mood turned negative")
     elif shifted and end_mood == "positive":
@@ -230,7 +262,7 @@ def _analyze_heuristic(customer: str, agent: str, transcript: dict) -> dict:
             },
             "start_evidence": start_ev,
         },
-        "resolution": {"status": status, "reason": "keyword-based judgment", "evidence": res_ev},
+        "resolution": {"status": status, "reason": _resolution_reason(status, had_action, had_close), "evidence": res_ev},
         "summary": summary,
         "attention": {"score": score, "reasons": reasons, "evidence": att_ev},
         "topics": [category.replace("_", " ")],
@@ -260,6 +292,19 @@ def _agent_repeated_question(agent_turns: list[dict]) -> bool:
             if a and b and len(a & b) / min(len(a), len(b)) >= 0.6:
                 return True
     return False
+
+
+def _resolution_reason(status: str, had_action: bool, had_close: bool) -> str:
+    if status == "escalated":
+        return "call was escalated to a manager/supervisor"
+    if status == "unresolved":
+        return "customer still had an unmet need at the end of the call"
+    if status == "resolved":
+        if had_action:
+            return "agent completed the requested action on the call"
+        if had_close:
+            return "call ended with a normal close and no unresolved issue"
+    return "resolution could not be confirmed from the transcript"
 
 
 def _heuristic_summary(customer: str, category: str, status: str,
