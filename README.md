@@ -85,6 +85,18 @@ docker compose run --rm -e WHISPER_MODEL=tiny.en pipeline python -m pipeline.run
 
 The pipeline is **resumable** — rerun `docker compose run --rm pipeline` and it picks up where it left off (use `--force` to reprocess).
 
+### Tuning analysis without re-transcribing
+
+Transcription is the slow part; analysis is cheap. If you change the analysis logic or switch engines, re-score every call in seconds using the transcripts already in the database:
+
+```bash
+docker compose run --rm pipeline python -m pipeline.reanalyze
+```
+
+### Verified on the full dataset
+
+Running the whole pipeline over all **1,441 calls** produces: 100 customers, 10 agents, a ranked attention list topped by genuinely harder calls (unresolved / account-access / card-lost), realistic resolution outcomes, and **100% evidence coverage** — every cited quote verified against its transcript turn at the stated timestamp.
+
 ### Using Claude for best-quality analysis
 
 ```bash
