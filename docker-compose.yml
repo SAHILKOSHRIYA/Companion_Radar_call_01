@@ -1,0 +1,69 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: callradar
+      POSTGRES_PASSWORD: callradar
+      POSTGRES_DB: callradar
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U callradar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://callradar:callradar@db:5432/callradar
+      CALLRADAR_AUDIO_DIR: /data/audio
+      CALLRADAR_METADATA_DIR: /data/metadata
+      CALLRADAR_ANALYSIS_DIR: /data/analysis
+    volumes:
+      - ./data:/data
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+
+  # One-shot pipeline runner. Start it explicitly with:
+  #   docker compose run --rm pipeline
+  # It reads recordings from ./data and writes transcripts + analysis to the DB.
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://callradar:callradar@db:5432/callradar
+      CALLRADAR_AUDIO_DIR: /data/audio
+      CALLRADAR_METADATA_DIR: /data/metadata
+      CALLRADAR_ANALYSIS_DIR: /data/analysis
+      ANALYSIS_ENGINE: ${ANALYSIS_ENGINE:-auto}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      WHISPER_MODEL: ${WHISPER_MODEL:-base.en}
+      PIPELINE_WORKERS: ${PIPELINE_WORKERS:-4}
+    volumes:
+      - ./data:/data
+    command: ["python", "-m", "pipeline.run"]
+
+volumes:
+  pgdata:

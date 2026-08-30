@@ -1,0 +1,27 @@
+# Backend + pipeline image. Python 3.11 (stable wheels for faster-whisper/torch),
+# ffmpeg baked in for channel splitting. Same image runs the API and the batch
+# pipeline — the command decides which.
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+# ffmpeg for audio channel extraction; libgomp for CTranslate2 (faster-whisper).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy source (pipeline + backend). Data comes in as a mounted volume.
+COPY pipeline ./pipeline
+COPY backend ./backend
+
+EXPOSE 8000
+
+# Default: run the API. Override the command to run the pipeline.
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
