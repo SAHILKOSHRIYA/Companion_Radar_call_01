@@ -95,6 +95,18 @@ docker compose run --rm pipeline          # now uses Claude, with evidence citat
 
 Without a key it automatically falls back to Ollama (if reachable) and then to the built-in heuristic engine, so it always runs.
 
+### Hybrid mode — Claude on the calls that matter most
+
+The base batch uses the fast offline engine so it always completes. To upgrade just the **highest-attention calls** (the ones a manager opens first) to Claude's sharper reasoning and genuine verified citations, run the enrichment pass:
+
+```bash
+# after the base batch, re-analyse the top 100 attention calls with Claude
+docker compose run --rm -e ANTHROPIC_API_KEY=sk-ant-... pipeline \
+  python -m pipeline.enrich_claude --top 100
+```
+
+It reads the already-transcribed calls from the database (no re-transcription), re-runs analysis with Claude, re-verifies the evidence, and updates each row in place. Best of both worlds: full coverage cheaply, premium analysis where it counts.
+
 ---
 
 ## The API
