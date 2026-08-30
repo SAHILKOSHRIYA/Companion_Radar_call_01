@@ -38,19 +38,31 @@ def _resolve_engine() -> str:
 # Claude backend
 # ---------------------------------------------------------------------------
 def _analyze_claude(customer: str, agent: str, transcript_text: str) -> dict:
+    """Analyse a call with Claude, forcing structured output via a tool.
+
+    We define a single tool whose input_schema IS our analysis schema and force
+    Claude to call it. Claude then returns the analysis as the tool's input,
+    guaranteed to match the schema. This works across anthropic SDK versions
+    (no dependency on the newer output_config parameter).
+    """
     import anthropic
 
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    tool = {
+        "name": "record_call_analysis",
+        "description": "Record the structured, evidence-cited analysis of the call.",
+        "input_schema": ANALYSIS_SCHEMA,
+    }
     resp = client.messages.create(
         model=config.CLAUDE_MODEL,
         max_tokens=4096,
-        thinking={"type": "adaptive"},
         system=SYSTEM_PROMPT,
+        tools=[tool],
+        tool_choice={"type": "tool", "name": "record_call_analysis"},
         messages=[{"role": "user", "content": build_user_prompt(customer, agent, transcript_text)}],
-        output_config={"format": {"type": "json_schema", "schema": ANALYSIS_SCHEMA}},
     )
-    text = next(b.text for b in resp.content if b.type == "text")
-    data = json.loads(text)
+    data = next(b.input for b in resp.content if b.type == "tool_use")
+    data = dict(data)  # tool_use.input is a plain dict
     data["_engine"] = f"claude:{config.CLAUDE_MODEL}"
     return data
 
