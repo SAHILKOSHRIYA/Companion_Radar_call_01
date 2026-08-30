@@ -150,36 +150,63 @@ def _analyze_heuristic(customer: str, agent: str, transcript: dict) -> dict:
 
     # Resolution
     res_turn, _ = first_turn_matching(RESOLVED_WORDS)
-    if res_turn:
-        status = "resolved"
-    elif any(w in text_all for w in ["escalate", "manager", "supervisor"]):
+    escalated = any(w in text_all for w in ["escalate", "manager", "supervisor"])
+    if escalated:
         status = "escalated"
+    elif res_turn:
+        status = "resolved"
     else:
         status = "unclear"
     res_ev = _ev(res_turn) if res_turn else (_ev(turns[-1]) if turns else _empty_ev())
 
-    # Attention score
-    neg_count = sum(1 for t in cust_turns for w in NEG_WORDS if w in t["text"].lower())
-    score = 20
-    score += min(40, neg_count * 12)
-    if status in ("escalated", "unresolved"):
-        score += 25
-    if shifted and end_mood == "negative":
-        score += 15
-    if category in ("fraud_dispute", "card_lost_stolen", "complaint"):
-        score += 10
-    score = max(0, min(100, score))
-    reasons = []
-    if neg_count:
-        reasons.append(f"{neg_count} negative cue(s) from customer")
-    if status in ("escalated", "unresolved"):
-        reasons.append(f"call {status}")
-    if category in ("fraud_dispute", "card_lost_stolen"):
-        reasons.append("high-risk intent")
-    if not reasons:
-        reasons.append("routine call")
+    # Did the agent have to ask the same thing more than once?
+    agent_turns = [t for t in turns if t["speaker"] == "agent"]
+    repeated = _agent_repeated_question(agent_turns)
 
-    summary = _heuristic_summary(customer, category, status)
+    # ---- Attention score: additive signals, tuned for a rankable spread ----
+    # Even a benign dataset should separate harder calls from routine ones, so
+    # we reward risk, ambiguity, mood trajectory, friction and length — not just
+    # explicit anger, which is rare here.
+    neg_count = sum(1 for t in cust_turns for w in NEG_WORDS if w in t["text"].lower())
+    HIGH_RISK = {"fraud_dispute", "card_lost_stolen", "complaint", "account_access"}
+    MED_RISK = {"transaction_issue", "fees_charges", "loan_mortgage", "payment_transfer"}
+
+    score = 10
+    reasons = []
+
+    if neg_count:
+        score += min(35, neg_count * 12)
+        reasons.append(f"{neg_count} negative cue(s) from customer")
+    if status == "escalated":
+        score += 30; reasons.append("escalated to a manager")
+    elif status == "unclear":
+        score += 18; reasons.append("resolution not confirmed on the call")
+    if shifted and end_mood == "negative":
+        score += 20; reasons.append("customer mood turned negative")
+    elif shifted and end_mood == "positive":
+        score -= 5  # recovered — slightly less urgent
+    if category in HIGH_RISK:
+        score += 22; reasons.append(f"high-risk topic ({category.replace('_',' ')})")
+    elif category in MED_RISK:
+        score += 10; reasons.append(f"money-related topic ({category.replace('_',' ')})")
+    if repeated:
+        score += 12; reasons.append("agent had to ask the same question more than once")
+    # Longer-than-typical calls tend to signal friction (dataset mean ~57s).
+    dur = max((t["end"] for t in turns), default=0.0)
+    if dur >= 90:
+        score += 10; reasons.append("long call (possible friction)")
+    elif dur >= 70:
+        score += 5
+
+    score = max(0, min(100, score))
+    if not reasons:
+        reasons.append("routine call, resolved cleanly")
+
+    summary = _heuristic_summary(customer, category, status, shifted, end_mood)
+
+    # Attention evidence: prefer the moment that best explains the score.
+    att_turn = neg_turn or (shift_turn if (shifted and end_mood == "negative") else None) or res_turn
+    att_ev = _ev(att_turn) if att_turn else res_ev
 
     return {
         "intent": {
@@ -205,16 +232,50 @@ def _analyze_heuristic(customer: str, agent: str, transcript: dict) -> dict:
         },
         "resolution": {"status": status, "reason": "keyword-based judgment", "evidence": res_ev},
         "summary": summary,
-        "attention": {"score": score, "reasons": reasons, "evidence": res_ev},
+        "attention": {"score": score, "reasons": reasons, "evidence": att_ev},
         "topics": [category.replace("_", " ")],
-        "agent_questions_repeated": False,
+        "agent_questions_repeated": repeated,
         "_engine": "heuristic",
     }
 
 
-def _heuristic_summary(customer: str, category: str, status: str) -> str:
+def _agent_repeated_question(agent_turns: list[dict]) -> bool:
+    """Detect the agent asking the same thing twice — a friction signal.
+
+    We look at the agent's *questions* (turns containing '?') and flag a repeat
+    when two of them share most of their significant words.
+    """
+    import re as _re
+    questions = []
+    for t in agent_turns:
+        for sent in _re.split(r"(?<=[?.])\s+", t["text"]):
+            if "?" in sent:
+                words = frozenset(_re.sub(r"[^a-z ]", "", sent.lower()).split())
+                words = frozenset(w for w in words if len(w) > 3)
+                if len(words) >= 2:
+                    questions.append(words)
+    for i in range(len(questions)):
+        for j in range(i + 1, len(questions)):
+            a, b = questions[i], questions[j]
+            if a and b and len(a & b) / min(len(a), len(b)) >= 0.6:
+                return True
+    return False
+
+
+def _heuristic_summary(customer: str, category: str, status: str,
+                       shifted: bool = False, end_mood: str = "neutral") -> str:
     cat = category.replace("_", " ")
-    return f"{customer} contacted support about {cat}. The call was {status.replace('_', ' ')}."[:240]
+    outcome = {
+        "resolved": "and it was resolved on the call",
+        "escalated": "and it was escalated to a manager",
+        "unclear": "but the resolution was not confirmed on the call",
+    }.get(status, "")
+    mood_note = ""
+    if shifted and end_mood == "negative":
+        mood_note = " The customer's mood turned negative during the call."
+    elif shifted and end_mood == "positive":
+        mood_note = " The customer ended the call more positive than they began."
+    return f"{customer} contacted support about {cat} {outcome}.{mood_note}".strip()[:240]
 
 
 def _fmt(seconds: float) -> str:
