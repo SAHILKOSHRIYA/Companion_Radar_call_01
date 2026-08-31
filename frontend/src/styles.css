@@ -2,41 +2,50 @@
    Categorical palette validated colorblind-safe (dataviz validator, dark mode).
    Status colors are reserved and always ship with a text label. */
 
+/* CallRadar identity: a signal/instrument panel for a bank's support floor.
+   Cool blue-slate ground (the "radar screen"), a single cyan signal accent,
+   neutrals biased slightly cool toward the accent (chosen, not defaulted).
+   Categorical palette validated colorblind-safe; status colors reserved. */
 :root {
-  --bg:        #141413;
-  --surface:   #1a1a19;
-  --surface-2: #212120;
-  --surface-3: #2a2a28;
-  --border:    #34332f;
-  --border-2:  #454338;
+  --bg:        #0e1116;   /* deep blue-slate ground */
+  --surface:   #151a21;
+  --surface-2: #1b212a;
+  --surface-3: #232b36;
+  --border:    #2a3340;
+  --border-2:  #37414f;
 
-  --ink:       #ece9e2;   /* primary text */
-  --ink-2:     #b4b1a8;   /* secondary   */
-  --ink-3:     #85827a;   /* muted        */
+  --ink:       #e7ecf2;   /* primary text (cool white) */
+  --ink-2:     #a7b2c0;   /* secondary   */
+  --ink-3:     #6f7c8c;   /* muted        */
 
-  --accent:    #d97757;   /* warm terracotta — brand accent */
-  --accent-2:  #c9a227;
+  --accent:    #2fd6c3;   /* cyan signal — the radar sweep */
+  --accent-2:  #4b9bff;
+  --accent-glow: rgba(47, 214, 195, .16);
 
-  /* categorical (validated) */
-  --c1: #5b93e8; --c2: #bd7f36; --c3: #3aa88f; --c4: #9b6fd4; --c5: #d05f75;
+  /* categorical (validated colorblind-safe on this ground) */
+  --c1: #4b9bff; --c2: #c98a3c; --c3: #2fc7a8; --c4: #9b6fd4; --c5: #e0607c;
 
-  /* status (reserved; always with label) */
-  --good:     #3aa88f;
+  /* status (reserved; always with a text label) */
+  --good:     #2fc7a8;
   --warning:  #e0a93a;
-  --serious:  #e07b3f;
-  --critical: #e05265;
+  --serious:  #ef7f45;
+  --critical: #ef5a6e;
 
-  /* mood diverging: negative(red) — neutral(gray) — positive(teal) */
-  --mood-vneg: #d05f75;
-  --mood-neg:  #e07b3f;
-  --mood-neu:  #85827a;
-  --mood-pos:  #4fa38c;
-  --mood-vpos: #3aa88f;
+  /* mood diverging: negative(red) — neutral(slate) — positive(teal) */
+  --mood-vneg: #e0607c;
+  --mood-neg:  #ef7f45;
+  --mood-neu:  #6f7c8c;
+  --mood-pos:  #4fb8a4;
+  --mood-vpos: #2fc7a8;
 
-  --radius: 10px;
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 24px rgba(0,0,0,.28);
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 30px rgba(0,0,0,.35);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  /* Utility face for the whole app — a clean grotesque stack that avoids the
+     Inter default while staying crisp at UI sizes. */
+  --sans: "Söhne", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* Display face for headings — a touch more character. */
+  --display: "Space Grotesk", "Segoe UI Variable Display", "Segoe UI", var(--sans);
 }
 
 * { box-sizing: border-box; }
@@ -60,39 +69,55 @@ button { font-family: inherit; cursor: pointer; }
   border-right: 1px solid var(--border); padding: 22px 16px;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
-.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; padding: 0 6px; }
+.brand { display: flex; align-items: center; gap: 11px; margin-bottom: 28px; padding: 0 6px; }
 .brand-dot {
-  width: 22px; height: 22px; border-radius: 6px;
-  background: radial-gradient(circle at 30% 30%, var(--accent), #a94e30);
-  box-shadow: 0 0 0 3px rgba(217,119,87,.14);
+  position: relative; width: 26px; height: 26px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 30%, var(--accent-glow) 31% 55%, transparent 56%),
+    conic-gradient(from 0deg, var(--accent), transparent 55%);
+  box-shadow: 0 0 0 1px var(--border-2), 0 0 18px var(--accent-glow);
 }
-.brand h1 { font-size: 16px; margin: 0; letter-spacing: -.02em; font-weight: 650; }
-.brand span { font-size: 11px; color: var(--ink-3); display: block; }
+.brand-dot::after {  /* center blip */
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.brand h1 { font-family: var(--display); font-size: 17px; margin: 0; letter-spacing: -.01em; font-weight: 600; }
+.brand span { font-size: 10.5px; color: var(--ink-3); display: block; letter-spacing: .02em; }
 .nav a {
-  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
-  border-radius: 8px; color: var(--ink-2); font-size: 13.5px; margin-bottom: 2px;
-  transition: background .12s, color .12s;
+  display: flex; align-items: center; gap: 11px; padding: 9px 12px;
+  border-radius: 9px; color: var(--ink-2); font-size: 13.5px; margin-bottom: 2px;
+  transition: background .14s, color .14s, box-shadow .14s;
 }
 .nav a:hover { background: var(--surface-2); color: var(--ink); }
-.nav a.active { background: var(--surface-3); color: var(--ink); font-weight: 550; }
-.nav-ico { width: 16px; text-align: center; opacity: .8; }
+.nav a.active {
+  background: var(--surface-3); color: var(--ink); font-weight: 550;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.nav-ico { width: 16px; text-align: center; opacity: .85; color: var(--ink-3); }
+.nav a.active .nav-ico { color: var(--accent); opacity: 1; }
 
-.main { flex: 1; min-width: 0; padding: 28px 34px 60px; max-width: 1280px; }
+.main { flex: 1; min-width: 0; padding: 30px 36px 64px; max-width: 1300px; }
 .page-head { margin-bottom: 22px; }
-.page-head h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.02em; }
-.page-head p { margin: 0; color: var(--ink-3); font-size: 13px; }
+.page-head h2 { font-family: var(--display); margin: 0 0 5px; font-size: 25px; letter-spacing: -.02em; font-weight: 600; text-wrap: balance; }
+.page-head p { margin: 0; color: var(--ink-3); font-size: 13px; max-width: 78ch; line-height: 1.55; }
 
 /* ---------- Stat tiles ---------- */
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 26px; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
-.tile .label { font-size: 11.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
-.tile .value { font-size: 28px; font-weight: 640; letter-spacing: -.03em; margin-top: 6px; font-variant-numeric: tabular-nums; }
-.tile .sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 14px; margin-bottom: 26px; }
+.tile {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px;
+  transition: border-color .15s, transform .15s;
+}
+.tile:hover { border-color: var(--border-2); }
+.tile .label { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; font-weight: 550; }
+.tile .value { font-family: var(--display); font-size: 30px; font-weight: 600; letter-spacing: -.03em; margin-top: 6px; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.tile .sub { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
 
 /* ---------- Cards ---------- */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; }
-.card h3 { margin: 0 0 14px; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
-.card .card-sub { color: var(--ink-3); font-size: 12px; font-weight: 400; margin-left: 8px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; box-shadow: var(--shadow); }
+.card h3 { font-family: var(--display); margin: 0 0 14px; font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; }
+.card .card-sub { font-family: var(--sans); color: var(--ink-3); font-size: 12px; font-weight: 400; margin-left: 8px; }
 
 /* ---------- Tables ---------- */
 table { width: 100%; border-collapse: collapse; }
@@ -103,9 +128,22 @@ tbody tr { transition: background .1s; }
 tbody tr.clickable:hover { background: var(--surface-2); cursor: pointer; }
 .num { font-variant-numeric: tabular-nums; text-align: right; }
 
+tbody tr.clickable:hover td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
 /* ---------- Badges / chips ---------- */
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 550; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--ink-2); }
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* "See all" link in card headers */
+.see-all { font-size: 12px; color: var(--ink-3); cursor: pointer; transition: color .12s; white-space: nowrap; }
+.see-all:hover { color: var(--accent); }
+
+/* QA score pill */
+.qa-pill { display: inline-block; min-width: 30px; text-align: center; padding: 2px 7px; border-radius: 6px; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.qa-pill[data-band="good"]     { color: var(--good);     background: color-mix(in srgb, var(--good) 15%, transparent); }
+.qa-pill[data-band="warning"]  { color: var(--warning);  background: color-mix(in srgb, var(--warning) 15%, transparent); }
+.qa-pill[data-band="serious"]  { color: var(--serious);  background: color-mix(in srgb, var(--serious) 15%, transparent); }
+.qa-pill[data-band="critical"] { color: var(--critical); background: color-mix(in srgb, var(--critical) 18%, transparent); }
 
 /* attention score meter */
 .att { display: inline-flex; align-items: center; gap: 8px; }
