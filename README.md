@@ -6,14 +6,16 @@ You get audio, not transcripts. CallRadar builds everything from the raw `.mp3`s
 
 ### 📖 Documentation
 
-There is a **polished HTML documentation site** (light + dark, renders like a product) under [`docs/html/`](docs/html/) — open [`docs/html/index.html`](docs/html/index.html) for the complete documentation: everything from scratch to end, all screenshots and hand-written pages, requirement mapping, measurement criteria + results, formulas, example output, run steps, and live links.
+**🌐 Live documentation site:** **https://sahilkoshriya.github.io/Companion_Radar_call_01/** — a polished, live-rendering site (light + dark) with the complete project documentation. Also available as **PDFs** in [`docs/pdf/`](docs/pdf/) to send directly.
 
-| Document | HTML (open in browser) | Markdown | What's inside |
+| Document | Live (rendered) | PDF | Markdown |
 |---|---|---|---|
-| **Complete documentation** | [`docs/html/index.html`](docs/html/index.html) | — | Everything, one page |
-| Architecture & design | [`docs/html/architecture.html`](docs/html/architecture.html) | [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System diagram, the five design decisions, tradeoffs |
-| Formulas & notation | [`docs/html/formulas.html`](docs/html/formulas.html) | [`HANDWRITTEN_REFERENCE.md`](docs/HANDWRITTEN_REFERENCE.md) | Every formula, with the hand-written pages |
-| Dashboard walkthrough | [`docs/html/demo.html`](docs/html/demo.html) | [`DEMO.md`](docs/DEMO.md) | Guided tour of the product |
+| **Complete documentation** | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/index.html) | [PDF](docs/pdf/Companion-for-CallRadar-Complete-Documentation.pdf) | — |
+| Architecture & design | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/architecture.html) | [PDF](docs/pdf/Architecture.pdf) | [MD](docs/ARCHITECTURE.md) |
+| Formulas & notation | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/formulas.html) | [PDF](docs/pdf/Formulas-and-Notation.pdf) | [MD](docs/HANDWRITTEN_REFERENCE.md) |
+| Dashboard walkthrough | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/demo.html) | [PDF](docs/pdf/Walkthrough.pdf) | [MD](docs/DEMO.md) |
+
+> The complete documentation covers everything from scratch to end: requirement mapping to the problem statement, all screenshots and hand-written pages, measurement criteria + results, formulas, example output, run steps, API reference, and live links.
 
 > **▶︎ Run it:** `python scripts/load_data.py <callradar-data.zip>` → `docker compose up -d --build` → `docker compose run --rm pipeline` → open **http://localhost:3000**. Full steps below. Runs from scratch with **no API keys**.
 
