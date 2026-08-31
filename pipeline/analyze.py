@@ -23,9 +23,12 @@ from .prompts import SYSTEM_PROMPT, ANALYSIS_SCHEMA, build_user_prompt
 # ---------------------------------------------------------------------------
 def _resolve_engine() -> str:
     forced = config.ANALYSIS_ENGINE
-    if forced in ("claude", "azure", "ollama", "heuristic"):
+    if forced in ("claude", "azure", "azure-claude", "ollama", "heuristic"):
         return forced
-    # auto: prefer Azure if configured, then Claude, then Ollama, else heuristic
+    # auto: prefer Azure-Claude, then Azure-OpenAI, then first-party Claude,
+    # then Ollama, else the offline heuristic.
+    if config.AZURE_CLAUDE_ENDPOINT and config.AZURE_CLAUDE_KEY:
+        return "azure-claude"
     if config.AZURE_OPENAI_ENDPOINT and config.AZURE_OPENAI_KEY:
         return "azure"
     if config.ANTHROPIC_API_KEY:
@@ -143,6 +146,60 @@ def _analyze_azure(customer: str, agent: str, transcript_text: str) -> dict:
         return data
 
     raise RuntimeError(f"Azure request failed after parameter fallbacks: {last_err}")
+
+
+# ---------------------------------------------------------------------------
+# Azure AI Foundry — Claude backend (Messages API).
+#
+# Claude models served via Azure use Anthropic's Messages API, not Chat
+# Completions. We force a tool call whose input schema IS our analysis schema
+# (same guarantee as the first-party Claude path), and capture token usage.
+# Point AZURE_CLAUDE_DEPLOYMENT at any Claude deployment (sonnet-5, opus-5, ...).
+# ---------------------------------------------------------------------------
+def _analyze_azure_claude(customer: str, agent: str, transcript_text: str) -> dict:
+    import httpx
+
+    url = (
+        f"{config.AZURE_CLAUDE_ENDPOINT.rstrip('/')}/models/chat/completions"
+        f"?api-version={config.AZURE_CLAUDE_API_VERSION}"
+    )
+    # Azure AI Foundry exposes Claude via the Messages API at /v1/messages on the
+    # resource's Anthropic-compatible route. Try that shape first.
+    messages_url = f"{config.AZURE_CLAUDE_ENDPOINT.rstrip('/')}/v1/messages"
+    tool = {
+        "name": "record_call_analysis",
+        "description": "Record the structured, evidence-cited analysis of the call.",
+        "input_schema": ANALYSIS_SCHEMA,
+    }
+    body = {
+        "model": config.AZURE_CLAUDE_DEPLOYMENT,
+        "max_tokens": 4096,
+        "system": SYSTEM_PROMPT,
+        "tools": [tool],
+        "tool_choice": {"type": "tool", "name": "record_call_analysis"},
+        "messages": [{"role": "user", "content": build_user_prompt(customer, agent, transcript_text)}],
+    }
+    r = httpx.post(
+        messages_url,
+        headers={
+            "x-api-key": config.AZURE_CLAUDE_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        json=body,
+        timeout=180,
+    )
+    r.raise_for_status()
+    payload = r.json()
+    data = next(dict(b["input"]) for b in payload["content"] if b.get("type") == "tool_use")
+    data["_engine"] = f"azure-claude:{config.AZURE_CLAUDE_DEPLOYMENT}"
+    usage = payload.get("usage") or {}
+    data["_usage"] = {
+        "prompt_tokens": usage.get("input_tokens", 0),
+        "completion_tokens": usage.get("output_tokens", 0),
+        "total_tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
+    }
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -520,6 +577,8 @@ def analyze_call(customer: str, agent: str, transcript: dict, transcript_text: s
             result = _analyze_claude(customer, agent, transcript_text)
         elif engine == "azure":
             result = _analyze_azure(customer, agent, transcript_text)
+        elif engine == "azure-claude":
+            result = _analyze_azure_claude(customer, agent, transcript_text)
         elif engine == "ollama":
             result = _analyze_ollama(customer, agent, transcript_text)
         else:

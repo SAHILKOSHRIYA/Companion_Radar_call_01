@@ -53,6 +53,15 @@ AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY", "")
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
 
+# --- Azure AI Foundry — Claude models (Messages API, not Chat Completions) ---
+# Claude models served through Azure use Anthropic's Messages API shape, so they
+# need their own endpoint/key/deployment. Fill these to use e.g. claude-sonnet-5
+# via Azure. Endpoint looks like https://<resource>.services.ai.azure.com
+AZURE_CLAUDE_ENDPOINT = os.getenv("AZURE_CLAUDE_ENDPOINT", "")
+AZURE_CLAUDE_KEY = os.getenv("AZURE_CLAUDE_KEY", "")
+AZURE_CLAUDE_DEPLOYMENT = os.getenv("AZURE_CLAUDE_DEPLOYMENT", "claude-sonnet-5")
+AZURE_CLAUDE_API_VERSION = os.getenv("AZURE_CLAUDE_API_VERSION", "2024-10-01-preview")
+
 # --- Ollama (offline fallback) ---
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")

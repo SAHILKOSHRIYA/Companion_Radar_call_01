@@ -22,7 +22,7 @@ import argparse
 import os
 import sys
 
-STRONG_ENGINES = ("azure:", "claude:")
+STRONG_ENGINES = ("azure:", "azure-claude:", "claude:")
 
 
 def _is_strong(engine: str | None) -> bool:
@@ -57,6 +57,9 @@ def main() -> int:
     # Sanity-check the engine is actually reachable before spending money/time.
     if engine == "azure" and not (config.AZURE_OPENAI_ENDPOINT and config.AZURE_OPENAI_KEY):
         print("Azure engine selected but AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_KEY are not set.")
+        return 1
+    if engine == "azure-claude" and not (config.AZURE_CLAUDE_ENDPOINT and config.AZURE_CLAUDE_KEY):
+        print("Azure-Claude engine selected but AZURE_CLAUDE_ENDPOINT / AZURE_CLAUDE_KEY are not set.")
         return 1
     if engine == "claude" and not config.ANTHROPIC_API_KEY:
         print("Claude engine selected but ANTHROPIC_API_KEY is not set.")
