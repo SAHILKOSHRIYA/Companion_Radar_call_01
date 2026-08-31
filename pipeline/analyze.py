@@ -67,15 +67,16 @@ def _analyze_claude(customer: str, agent: str, transcript_text: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Azure OpenAI backend (GPT-4o) — uses function-calling for guaranteed schema.
+# Azure OpenAI backend — model-agnostic.
+#
+# Works across model families (gpt-4o, gpt-5-mini, o-series, ...) by forcing a
+# function call whose parameters ARE our analysis schema. Model APIs differ in
+# annoying ways — some reject `temperature`, some want `max_completion_tokens`
+# instead of `max_tokens` — so we build the request defensively and retry on the
+# specific "unsupported parameter" errors instead of failing the whole call.
+# To point at a different Azure model, just change AZURE_OPENAI_DEPLOYMENT.
 # ---------------------------------------------------------------------------
 def _analyze_azure(customer: str, agent: str, transcript_text: str) -> dict:
-    """Analyse a call with Azure OpenAI (e.g. GPT-4o).
-
-    We force a function call whose parameters ARE our analysis schema, so the
-    model must return a schema-valid object — the same guaranteed-structure
-    trick used for Claude, via OpenAI's tool/function-calling.
-    """
     import httpx
 
     url = (
@@ -83,6 +84,7 @@ def _analyze_azure(customer: str, agent: str, transcript_text: str) -> dict:
         f"{config.AZURE_OPENAI_DEPLOYMENT}/chat/completions"
         f"?api-version={config.AZURE_OPENAI_API_VERSION}"
     )
+    headers = {"api-key": config.AZURE_OPENAI_KEY, "Content-Type": "application/json"}
     tools = [{
         "type": "function",
         "function": {
@@ -91,28 +93,47 @@ def _analyze_azure(customer: str, agent: str, transcript_text: str) -> dict:
             "parameters": ANALYSIS_SCHEMA,
         },
     }]
-    body = {
+    base = {
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": build_user_prompt(customer, agent, transcript_text)},
         ],
         "tools": tools,
         "tool_choice": {"type": "function", "function": {"name": "record_call_analysis"}},
-        "temperature": 0.2,
-        "max_tokens": 2000,
     }
-    r = httpx.post(
-        url,
-        headers={"api-key": config.AZURE_OPENAI_KEY, "Content-Type": "application/json"},
-        json=body,
-        timeout=120,
-    )
-    r.raise_for_status()
-    msg = r.json()["choices"][0]["message"]
-    args = msg["tool_calls"][0]["function"]["arguments"]
-    data = json.loads(args)
-    data["_engine"] = f"azure:{config.AZURE_OPENAI_DEPLOYMENT}"
-    return data
+
+    # Try the richest request first, then progressively drop params the model
+    # rejects. Order: (temperature + max_tokens) -> (max_completion_tokens) ->
+    # (no token/temp params). This covers gpt-4o and the gpt-5 / o-series shapes.
+    attempts = [
+        {**base, "temperature": 0.2, "max_tokens": 2000},
+        {**base, "max_completion_tokens": 2000},
+        {**base},
+    ]
+
+    last_err = None
+    for body in attempts:
+        r = httpx.post(url, headers=headers, json=body, timeout=180)
+        if r.status_code == 400:
+            msg = r.text.lower()
+            # Only retry when the error is about an unsupported parameter.
+            if any(w in msg for w in ["unsupported", "not supported", "max_tokens",
+                                      "max_completion_tokens", "temperature", "unknown parameter"]):
+                last_err = r.text
+                continue
+        r.raise_for_status()
+        message = r.json()["choices"][0]["message"]
+        tcs = message.get("tool_calls")
+        if not tcs:
+            # Some models may return content instead of a tool call; try to parse it.
+            content = message.get("content") or ""
+            data = json.loads(content)
+        else:
+            data = json.loads(tcs[0]["function"]["arguments"])
+        data["_engine"] = f"azure:{config.AZURE_OPENAI_DEPLOYMENT}"
+        return data
+
+    raise RuntimeError(f"Azure request failed after parameter fallbacks: {last_err}")
 
 
 # ---------------------------------------------------------------------------
