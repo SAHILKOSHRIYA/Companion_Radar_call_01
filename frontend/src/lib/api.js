@@ -16,6 +16,8 @@ export const api = {
   trends: () => get("/trends"),
   agents: () => get("/agents"),
   evaluation: () => get("/evaluation"),
+  qa: (limit = 40, riskOnly = true) => get(`/qa?limit=${limit}&risk_only=${riskOnly}`),
+  qaStats: () => get("/qa/stats"),
 };
 
 export const audioUrl = (sid) => `/api/audio/${sid}.mp3`;

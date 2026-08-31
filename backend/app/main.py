@@ -63,6 +63,8 @@ def _call_brief(c: Call) -> dict:
         "evidence_score": c.evidence_score,
         "topics": c.topics or [],
         "analysis_engine": c.analysis_engine,
+        "qa_score": c.qa_score,
+        "resolution_risk": c.resolution_risk,
     }
 
 
@@ -75,6 +77,9 @@ def _call_full(c: Call) -> dict:
         "transcript": c.transcript,
         "transcript_text": c.transcript_text,
         "analysis": c.analysis,
+        "qa": c.qa,
+        "qa_score": c.qa_score,
+        "resolution_risk": c.resolution_risk,
         "audio_url": f"/api/audio/{c.sid}.mp3",
     }
 
@@ -101,6 +106,8 @@ def stats():
         high_attention = s.query(func.count(Call.sid)).filter(Call.attention_score >= 70).scalar() or 0
         avg_att = s.query(func.avg(Call.attention_score)).scalar() or 0
         avg_ev = s.query(func.avg(Call.evidence_score)).scalar() or 0
+        resolution_risk = s.query(func.count(Call.sid)).filter(Call.resolution_risk == True).scalar() or 0  # noqa: E712
+        avg_qa = s.query(func.avg(Call.qa_score)).scalar() or 0
     return {
         "total_calls": total,
         "customers": customers,
@@ -109,6 +116,8 @@ def stats():
         "high_attention": high_attention,
         "avg_attention": round(float(avg_att), 1),
         "avg_evidence_score": round(float(avg_ev), 3),
+        "resolution_risk": resolution_risk,
+        "avg_qa_score": round(float(avg_qa), 1),
     }
 
 
@@ -241,6 +250,56 @@ def agents():
             "outcomes": oc,
         })
     return {"agents": out}
+
+
+@app.get("/api/qa")
+def qa(limit: int = 50, risk_only: bool = True):
+    """QA / compliance view: calls ranked by lowest QA score, i.e. the ones a
+    manager should coach on or that "sounded resolved but weren't"."""
+    with SessionLocal() as s:
+        q = s.query(Call)
+        if risk_only:
+            q = q.filter(Call.resolution_risk == True)  # noqa: E712
+        calls = q.order_by(Call.qa_score.asc(), desc(Call.attention_score)).limit(limit).all()
+    return {
+        "calls": [{**_call_brief(c), "qa": c.qa} for c in calls],
+        "count": len(calls),
+    }
+
+
+@app.get("/api/qa/stats")
+def qa_stats():
+    """Aggregate QA numbers for the dashboard, incl. per-check pass rates."""
+    with SessionLocal() as s:
+        rows = s.query(Call.qa, Call.qa_score, Call.resolution_risk).all()
+    total = len(rows)
+    if not total:
+        return {"total": 0}
+    risk = sum(1 for _qa, _s, r in rows if r)
+    avg = round(sum(s or 0 for _qa, s, _r in rows) / total, 1)
+    # per-check pass rates
+    check_agg = {}
+    for qa_obj, _s, _r in rows:
+        for chk in (qa_obj or {}).get("checks", []):
+            if chk.get("weight", 0) == 0:
+                continue
+            k = chk["key"]
+            d = check_agg.setdefault(k, {"label": chk["label"], "pass": 0, "total": 0})
+            d["total"] += 1
+            d["pass"] += 1 if chk["passed"] else 0
+    checks = [
+        {"key": k, "label": v["label"], "pass": v["pass"], "total": v["total"],
+         "rate": round(v["pass"] / v["total"], 4) if v["total"] else 0.0}
+        for k, v in check_agg.items()
+    ]
+    checks.sort(key=lambda x: x["rate"])
+    return {
+        "total": total,
+        "avg_qa_score": avg,
+        "resolution_risk_count": risk,
+        "resolution_risk_rate": round(risk / total, 4),
+        "checks": checks,
+    }
 
 
 @app.get("/api/evaluation")

@@ -114,6 +114,11 @@ export default function CallView() {
         )}
       </div>
 
+      {/* QA / compliance */}
+      {call.qa && Object.keys(call.qa).length > 0 && (
+        <QASection qa={call.qa} qaScore={call.qa_score} onCite={jumpTo} />
+      )}
+
       {/* Transcript */}
       <div className="card">
         <h3>Transcript <span className="card-sub">{turns.length} turns · agent = left channel, customer = right channel</span></h3>
@@ -168,6 +173,56 @@ function MoodTimeline({ mood, duration, onCite }) {
           {mood.shifted && <span className="mono">shift at {mood.shift?.timestamp}</span>}
           <span><Mood value={mood.end} /></span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function qaColor(score) {
+  if (score >= 80) return "var(--good)";
+  if (score >= 60) return "var(--warning)";
+  if (score >= 40) return "var(--serious)";
+  return "var(--critical)";
+}
+
+function QASection({ qa, qaScore, onCite }) {
+  const checks = qa.checks || [];
+  return (
+    <div className="card">
+      <h3 className="row-between">
+        <span>QA & Compliance
+          <span className="card-sub">how well the call was handled — every check cites the moment</span>
+        </span>
+        <span style={{ color: qaColor(qaScore), fontWeight: 700, fontSize: 18 }}>{qaScore}/100</span>
+      </h3>
+
+      {qa.resolution_risk && (
+        <div className="evidence unverified" style={{ borderLeftColor: "var(--critical)", marginBottom: 12 }}>
+          <div className="ev-head"><span className="ev-badge" style={{ color: "var(--critical)" }}>⚠ RESOLUTION RISK — sounded resolved but wasn't</span></div>
+          {(qa.resolution_risk_reasons || []).map((r) => (
+            <div className="ev-quote" key={r} style={{ fontStyle: "normal" }}>• {r}</div>
+          ))}
+        </div>
+      )}
+
+      <div className="judgments">
+        {checks.filter((c) => c.weight > 0).map((c) => (
+          <div className="judgment" key={c.key}>
+            <div className="j-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span className="res dot" style={{ background: c.passed ? "var(--good)" : "var(--critical)", width: 8, height: 8, borderRadius: "50%", display: "inline-block" }} />
+              {c.label}
+              <span style={{ marginLeft: "auto", color: c.passed ? "var(--good)" : "var(--critical)", fontWeight: 600 }}>
+                {c.passed ? "PASS" : "FAIL"}
+              </span>
+            </div>
+            {c.evidence && c.evidence.quote && (
+              <Evidence ev={c.evidence} onCite={onCite} />
+            )}
+            {!c.passed && c.coaching && (
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>💡 {c.coaching}</div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

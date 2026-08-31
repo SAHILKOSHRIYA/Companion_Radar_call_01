@@ -11,6 +11,7 @@ import CallView from "./pages/CallView";
 import Agents from "./pages/Agents";
 import Trends from "./pages/Trends";
 import Quality from "./pages/Quality";
+import QA from "./pages/QA";
 
 function Shell() {
   const link = ({ isActive }) => (isActive ? "active" : "");
@@ -27,6 +28,7 @@ function Shell() {
         <nav className="nav">
           <NavLink to="/" end className={link}><span className="nav-ico">◎</span> Overview</NavLink>
           <NavLink to="/attention" className={link}><span className="nav-ico">▲</span> Needs Attention</NavLink>
+          <NavLink to="/qa" className={link}><span className="nav-ico">◈</span> QA & Compliance</NavLink>
           <NavLink to="/customers" className={link}><span className="nav-ico">◍</span> Customers</NavLink>
           <NavLink to="/agents" className={link}><span className="nav-ico">◆</span> Agents</NavLink>
           <NavLink to="/trends" className={link}><span className="nav-ico">≈</span> Trends</NavLink>
@@ -43,6 +45,7 @@ function Shell() {
           <Route path="/agents" element={<Agents />} />
           <Route path="/trends" element={<Trends />} />
           <Route path="/quality" element={<Quality />} />
+          <Route path="/qa" element={<QA />} />
         </Routes>
       </main>
     </div>
