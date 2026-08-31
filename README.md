@@ -9,16 +9,21 @@ You get audio, not transcripts. CallRadar builds everything from the raw `.mp3`s
 ## What makes this different
 
 **1. Perfect speaker separation — by construction, not by guessing.**
-The recordings are stereo: **left channel = agent, right channel = customer.** Instead of running a fragile ML diarizer to guess "who spoke," CallRadar **splits the channels** and transcribes each independently, then interleaves the two by timestamp to rebuild the conversation. Every word is attributed to the right speaker with 100% certainty, and every turn carries a real timestamp we can cite as evidence.
+The recordings are stereo: **left channel = agent, right channel = customer.** Instead of running a fragile ML diarizer to guess "who spoke," CallRadar **splits the channels** and transcribes each independently, then interleaves the two by timestamp to rebuild the conversation. Every word is attributed to the right speaker by construction. It even **auto-detects and corrects the ~37 recordings that came off the phone system with reversed channels** (the agent speaks the bank script — if that lands on the wrong channel, we swap it).
 
-**2. Every judgment cites the moment that proves it.**
-The brief is explicit: *a claim with no evidence scores zero; evidence that doesn't support the claim scores negative.* So the analysis schema **forces** each judgment — intent, mood shift, resolution, attention score — to carry an `evidence` object: `{ timestamp, verbatim quote, speaker }`. In the dashboard, every judgment is clickable and **jumps the audio player to that second** and highlights the transcript turn.
+**2. Every judgment cites the moment that proves it — and we verify it.**
+The brief is explicit: *a claim with no evidence scores zero; evidence that doesn't support the claim scores negative.* So every judgment carries an `evidence` object `{ timestamp, verbatim quote, speaker }`, and a **verification pass checks each cited quote actually appears in the transcript at that timestamp.** Unverified citations render in amber rather than as fact. Measured across all 1,441 calls: **99.9% faithfulness.** In the dashboard every judgment is clickable and jumps the audio to that second.
 
-**3. We verify the evidence, not just trust the model.**
-After analysis, a verification pass checks that each cited quote *actually appears* in the transcript at the stated timestamp, and attaches a `verified` flag plus an evidence-coverage score. Unverified citations are surfaced in amber rather than passed off as fact — directly defending against the "negative score" penalty.
+**3. It measures its own quality — the way the research does.**
+A dedicated **Quality** page and `GET /api/evaluation` report **faithfulness** (evidence grounding), **diarization quality** (cross-channel correlation, proving speaker attribution is correct by construction), and **coverage** (every output well-formed) — plus a human-validation tool. This follows the 2025 conversation-intelligence / faithfulness literature (WER for speech, FaithBench-style grounding) rather than a brittle exact-match "accuracy" number that would punish a good-but-reworded answer.
 
-**4. Runs from scratch with or without an API key.**
-The analysis engine is pluggable: **Claude (default, best quality)** → **Ollama (offline)** → **a dependency-free heuristic** that still produces evidence-cited output. The whole thing comes up with `docker compose up` and needs no keys to demonstrate.
+**4. QA & compliance — "the call that sounded resolved but wasn't."**
+A bank-grade quality layer scores every call from the transcript: did the agent verify identity before moving money? confirm the action? show empathy? It flags **resolution-risk** calls that closed politely but were never actually completed, and surfaces **team-wide coaching gaps** (e.g. identity verified on only 7% of sensitive-action calls). This is the exact failure the problem statement calls out, and what banks pay conversation-intelligence vendors for.
+
+**5. Runs from scratch, scales to premium quality.**
+The analysis engine is pluggable: **Claude** / **Azure OpenAI (GPT-4o)** for premium reasoning → **Ollama** (offline) → a **dependency-free heuristic** that still produces evidence-cited output. Comes up with `docker compose up` and needs **no keys** to demonstrate; add a key to enrich the calls that matter.
+
+> **Design deep-dive:** see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the system diagram, the five load-bearing design decisions and why each was made, and the design-tradeoffs table.
 
 ---
 
@@ -68,7 +73,11 @@ docker compose up -d --build
 #    Runs in the same image, writes results to Postgres.
 docker compose run --rm pipeline
 
-# 4. Open the dashboard
+# 4. Add the QA / compliance layer + quality metrics
+docker compose run --rm pipeline python -m pipeline.compute_qa
+docker compose run --rm pipeline python -m pipeline.evaluate
+
+# 5. Open the dashboard
 #    http://localhost:3000
 ```
 
@@ -97,27 +106,37 @@ docker compose run --rm pipeline python -m pipeline.reanalyze
 
 Running the whole pipeline over all **1,441 calls** produces: 100 customers, 10 agents, a ranked attention list topped by genuinely harder calls (unresolved / account-access / card-lost), realistic resolution outcomes, and **100% evidence coverage** — every cited quote verified against its transcript turn at the stated timestamp.
 
-### Using Claude for best-quality analysis
+### Compute the QA / compliance layer
 
 ```bash
-cp .env.example .env
-# edit .env: set ANTHROPIC_API_KEY=sk-ant-...
-docker compose run --rm pipeline          # now uses Claude, with evidence citations
+docker compose run --rm pipeline python -m pipeline.compute_qa
 ```
 
-Without a key it automatically falls back to Ollama (if reachable) and then to the built-in heuristic engine, so it always runs.
+Scores every call against the bank-grade QA rubric (identity verification, action confirmation, empathy, repeated questions, professional open/close) and flags the "sounded resolved but wasn't" calls. Deterministic, offline, every flag cites a moment.
 
-### Hybrid mode — Claude on the calls that matter most
-
-The base batch uses the fast offline engine so it always completes. To upgrade just the **highest-attention calls** (the ones a manager opens first) to Claude's sharper reasoning and genuine verified citations, run the enrichment pass:
+### Report the quality metrics
 
 ```bash
-# after the base batch, re-analyse the top 100 attention calls with Claude
-docker compose run --rm -e ANTHROPIC_API_KEY=sk-ant-... pipeline \
-  python -m pipeline.enrich_claude --top 100
+docker compose run --rm pipeline python -m pipeline.evaluate
 ```
 
-It reads the already-transcribed calls from the database (no re-transcription), re-runs analysis with Claude, re-verifies the evidence, and updates each row in place. Best of both worlds: full coverage cheaply, premium analysis where it counts.
+Prints (and serves at `/api/evaluation`) faithfulness, diarization separation, and coverage. Add a human-validated sample with `python -m pipeline.label --n 30`.
+
+### Premium analysis with an LLM (Claude or Azure OpenAI)
+
+The base batch uses the fast offline engine so it always completes with **no keys**. To upgrade the calls that matter to LLM-grade reasoning:
+
+```bash
+# Option A — Claude (Anthropic key)
+docker compose run --rm -e ANTHROPIC_API_KEY=sk-ant-... -e ANALYSIS_ENGINE=claude \
+  pipeline python -m pipeline.enrich --top 100
+
+# Option B — Azure OpenAI GPT-4o (set AZURE_OPENAI_* in .env)
+docker compose run --rm -e ANALYSIS_ENGINE=azure \
+  pipeline python -m pipeline.enrich --all --skip-strong
+```
+
+`enrich` reads the already-transcribed calls (no re-transcription), re-runs analysis, re-verifies evidence, and updates each row. `--top N` does the highest-attention calls; `--all` does everything; `--skip-strong` never re-spends on calls already done by a strong engine, and it halts immediately on any credit/quota error.
 
 ---
 
@@ -127,10 +146,13 @@ Every endpoint reads precomputed analysis. For any call it returns the transcrip
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/calls/{sid}` | **Full per-call analysis**: transcript (speakers + timings), intent, mood + shift timestamp, resolution, summary, attention score, and the evidence behind each judgment |
+| `GET /api/calls/{sid}` | **Full per-call analysis**: transcript (speakers + timings), intent, mood + shift timestamp, resolution, summary, attention score, QA score, and the evidence behind each judgment |
 | `GET /api/customers` | Every customer with call counts and peak attention |
 | `GET /api/customers/{name}` | A customer's full call history |
 | `GET /api/attention` | Ranked "needs a manager's attention today" list |
+| `GET /api/qa` | QA-risk-ranked calls ("sounded resolved but wasn't") |
+| `GET /api/qa/stats` | Team-wide QA metrics and coaching gaps |
+| `GET /api/evaluation` | System quality: faithfulness, diarization, coverage |
 | `GET /api/trends` | Trending issues across all calls |
 | `GET /api/agents` | Per-agent volumes, handle times, and outcomes |
 | `GET /api/audio/{sid}.mp3` | The playable recording |
@@ -160,14 +182,16 @@ curl http://localhost:8000/api/calls/<sid> | jq '.analysis.mood.shift'
 
 ## The dashboard
 
-- **Overview** — headline stats, the top calls needing attention, trending issues.
+- **Command Center** — headline stats, the top calls needing attention, the "sounded resolved but wasn't" panel, trending issues, and team-wide coaching gaps.
 - **Needs Attention** — every call ranked by urgency, each score backed by a cited moment.
+- **QA & Compliance** — resolution-risk calls, per-check pass rates, and the specific handling failure on each flagged call.
 - **Customers → customer → call** — the full drill-down the brief asks for.
-- **Per-call view** — the centerpiece: **playable recording, your transcript, the AI summary, the mood timeline, and every judgment with a click-to-hear evidence quote.** Clicking a citation seeks the audio and highlights the transcript turn.
+- **Per-call view** — the centerpiece: **playable recording, your transcript, the AI summary, the mood timeline, every judgment with a click-to-hear evidence quote, and the QA/compliance breakdown.** Clicking a citation seeks the audio and highlights the transcript turn.
 - **Agents** — volumes, average handle time, resolution outcomes.
 - **Trends** — recurring issues by category and topic.
+- **Quality** — the system's own measured faithfulness, diarization separation, and coverage.
 
-Colors are validated colorblind-safe (mood uses a diverging red→gray→teal scale; status colors are reserved and always paired with a label).
+The interface is a dark "instrument panel" identity fit to the subject (a cyan radar-signal accent on a blue-slate ground). Data-viz colors are validated colorblind-safe; status colors are reserved and always paired with a label.
 
 ---
 
