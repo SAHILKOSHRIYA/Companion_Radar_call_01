@@ -28,3 +28,4 @@ Thumbs.db
 
 # --- Whisper model cache (downloaded on first run) ---
 models/
+data/backup/
