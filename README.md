@@ -14,6 +14,30 @@ You get audio, not transcripts. CallRadar builds everything from the raw `.mp3`s
 
 > **▶︎ Run it:** `python scripts/load_data.py <callradar-data.zip>` → `docker compose up -d --build` → `docker compose run --rm pipeline` → open **http://localhost:3000**. Full steps below. Runs from scratch with **no API keys**.
 
+### Architecture & formulation (hand-written)
+
+The full architecture, the logic behind each stage, and every formula — worked out by hand. (Typed versions of the same formulas are in [`docs/HANDWRITTEN_REFERENCE.md`](docs/HANDWRITTEN_REFERENCE.md).)
+
+**Full architecture — implementation flow (raw audio → transcript → analysis → evidence → QA → DB → API → dashboard):**
+
+![Full architecture](docs/handwritten/01-architecture.png)
+
+**Formulation & notation — diarization (channels, not guessing) and separation quality:**
+
+![Diarization formulas](docs/handwritten/02-formulas-diarization.jpg)
+
+**Pearson correlation ρ, separation quality, and evidence-verification logic:**
+
+![Evidence verification formulas](docs/handwritten/03-formulas-evidence.jpg)
+
+**Per-call evidence score, system-wide faithfulness, and the needs-attention score:**
+
+![Score formulas](docs/handwritten/04-formulas-scores.jpg)
+
+**QA / compliance score, and the measured results on all 1,441 calls:**
+
+![QA formulas and results](docs/handwritten/05-formulas-qa.jpg)
+
 ### The dashboard (frontend) and the API (backend)
 
 **Frontend — the manager's Command Center:**
