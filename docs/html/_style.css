@@ -57,3 +57,20 @@ figure{margin:20px 0}
 figure img{width:100%;border:1px solid var(--border);border-radius:var(--radius);display:block;background:var(--surface)}
 figcaption{font-size:12.5px;color:var(--ink-3);margin-top:8px;text-align:center}
 footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--border);color:var(--ink-3);font-size:13px}
+
+/* Print / PDF — force a clean light, print-friendly layout for judges */
+@media print{
+  :root{--bg:#fff;--surface:#fff;--surface-2:#f5f6f8;--surface-3:#eceff3;--border:#d5dae0;--border-2:#c2c9d1;--ink:#12181f;--ink-2:#3a434e;--ink-3:#6b7681;--accent:#0a8577;--accent-2:#2358b8;--glow:rgba(10,133,119,.10)}
+  body{font-size:11.5pt}
+  .topbar{position:static;border-bottom:1px solid var(--border)}
+  .tt,.topbar a.back{display:none}
+  .main{max-width:none;padding:0 8mm}
+  a{color:var(--ink);text-decoration:none}
+  h1.title{font-size:26pt}
+  h2{font-size:16pt;page-break-after:avoid}
+  h3{page-break-after:avoid}
+  pre,.formula,figure,table,.callout{page-break-inside:avoid}
+  figure img{max-height:220mm;width:auto;max-width:100%;margin:0 auto}
+  figure{text-align:center}
+  footer{page-break-inside:avoid}
+}

@@ -128,6 +128,22 @@
   .theme-toggle:hover{color:var(--ink);border-color:var(--accent)}
 
   footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--ink-3);font-size:13px}
+
+  /* Print / PDF — clean light layout for judges */
+  @media print{
+    :root{--bg:#fff;--surface:#fff;--surface-2:#f5f6f8;--surface-3:#eceff3;--border:#d5dae0;--border-2:#c2c9d1;--ink:#12181f;--ink-2:#3a434e;--ink-3:#6b7681;--accent:#0a8577;--accent-2:#2358b8;--glow:rgba(10,133,119,.10)}
+    body{font-size:11pt}
+    .toc,.theme-toggle{display:none}
+    .main{max-width:none;padding:0 8mm}
+    h1.title{font-size:28pt}
+    h2{font-size:17pt;page-break-after:avoid;page-break-before:auto}
+    h3{page-break-after:avoid}
+    pre,.formula,figure,table,.callout,.card,.tiles{page-break-inside:avoid}
+    figure img{max-height:210mm;width:auto;max-width:100%;margin:0 auto}
+    figure{text-align:center}
+    a{color:var(--ink);text-decoration:none}
+    footer{page-break-inside:avoid}
+  }
 </style>
 </head>
 <body>
