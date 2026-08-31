@@ -78,6 +78,7 @@ def main() -> int:
 
     print(f"Enriching {len(todo)} calls with engine '{engine}'...")
     ok = err = 0
+    tot_prompt = tot_completion = 0
     for i, (sid, _eng) in enumerate(todo, 1):
         try:
             with SessionLocal() as s:
@@ -110,7 +111,12 @@ def main() -> int:
                 ))
                 s.commit()
             ok += 1
-            print(f"[{i}/{len(todo)}] OK  {sid}  {c.customer_name}", flush=True)
+            u = analysis.get("_usage") or {}
+            tot_prompt += u.get("prompt_tokens", 0)
+            tot_completion += u.get("completion_tokens", 0)
+            utxt = (f"  [{u.get('prompt_tokens',0)}+{u.get('completion_tokens',0)} tok]"
+                    if u else "")
+            print(f"[{i}/{len(todo)}] OK  {sid}  {c.customer_name}{utxt}", flush=True)
         except Exception as e:  # noqa: BLE001
             err += 1
             print(f"[{i}/{len(todo)}] ERR {sid}: {type(e).__name__}: {e}", flush=True)
@@ -121,6 +127,31 @@ def main() -> int:
                 break
 
     print(f"\nDone. Enriched: {ok}  Errors/skipped: {err}")
+
+    # Real token usage + full-run extrapolation, so you can decide before --all.
+    if ok and (tot_prompt or tot_completion):
+        avg_p = tot_prompt / ok
+        avg_c = tot_completion / ok
+        total_calls = 1441
+        # Optional price knobs ($ per 1M tokens). Set AZURE_PRICE_IN / AZURE_PRICE_OUT
+        # to your model's actual Azure rates for a dollar estimate.
+        p_in = float(os.getenv("AZURE_PRICE_IN", "0") or 0)
+        p_out = float(os.getenv("AZURE_PRICE_OUT", "0") or 0)
+        print("\n--- token usage (measured) ---")
+        print(f"  this run: {tot_prompt:,} prompt + {tot_completion:,} completion "
+              f"= {tot_prompt + tot_completion:,} tokens over {ok} calls")
+        print(f"  average per call: {avg_p:,.0f} prompt + {avg_c:,.0f} completion")
+        est_p = avg_p * total_calls
+        est_c = avg_c * total_calls
+        print(f"  extrapolated to all {total_calls} calls: "
+              f"~{est_p/1e6:.2f}M prompt + {est_c/1e6:.2f}M completion tokens")
+        if p_in or p_out:
+            cost_sample = (tot_prompt * p_in + tot_completion * p_out) / 1e6
+            cost_full = (est_p * p_in + est_c * p_out) / 1e6
+            print(f"  cost this run: ${cost_sample:.3f}  |  estimated full run: ${cost_full:.2f}")
+        else:
+            print("  (set AZURE_PRICE_IN / AZURE_PRICE_OUT env vars — $/1M tokens — for a dollar estimate)")
+
     return 0 if err == 0 else 1
 
 

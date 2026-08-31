@@ -122,7 +122,8 @@ def _analyze_azure(customer: str, agent: str, transcript_text: str) -> dict:
                 last_err = r.text
                 continue
         r.raise_for_status()
-        message = r.json()["choices"][0]["message"]
+        payload = r.json()
+        message = payload["choices"][0]["message"]
         tcs = message.get("tool_calls")
         if not tcs:
             # Some models may return content instead of a tool call; try to parse it.
@@ -131,6 +132,14 @@ def _analyze_azure(customer: str, agent: str, transcript_text: str) -> dict:
         else:
             data = json.loads(tcs[0]["function"]["arguments"])
         data["_engine"] = f"azure:{config.AZURE_OPENAI_DEPLOYMENT}"
+        # Capture real token usage so we can measure cost on a sample before a
+        # full run (the "run 30, measure, then decide" workflow).
+        usage = payload.get("usage") or {}
+        data["_usage"] = {
+            "prompt_tokens": usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "total_tokens": usage.get("total_tokens", 0),
+        }
         return data
 
     raise RuntimeError(f"Azure request failed after parameter fallbacks: {last_err}")
