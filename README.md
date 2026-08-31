@@ -4,6 +4,10 @@ Turn 1,441 raw support-call recordings into a manager's dashboard: **who called,
 
 You get audio, not transcripts. CallRadar builds everything from the raw `.mp3`s, exactly as they come off the phone system.
 
+> **📖 Documentation:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system diagram, the five load-bearing design decisions, and design tradeoffs. · [`docs/DEMO.md`](docs/DEMO.md) — a guided walkthrough of the dashboard.
+>
+> **▶︎ Run it:** `python scripts/load_data.py <callradar-data.zip>` → `docker compose up -d --build` → `docker compose run --rm pipeline` → open **http://localhost:3000**. Full steps below. Runs from scratch with **no API keys**.
+
 ---
 
 ## What makes this different
