@@ -155,6 +155,11 @@ def transcribe_call(mp3_path: Path) -> dict:
         if _extract_channel(mp3_path, config.CUSTOMER_CHANNEL, cust_wav):
             all_turns += _transcribe_channel(cust_wav, "customer")
 
+    # A minority of recordings come off the phone system with the channels
+    # reversed. Detect and correct that from the content before interleaving,
+    # so speaker attribution stays correct even on those calls.
+    swapped = _correct_speaker_swap(all_turns)
+
     # Interleave both speakers by real start time -> the actual conversation.
     all_turns.sort(key=lambda t: (t.start, 0 if t.speaker == "agent" else 1))
     all_turns = _merge_adjacent(all_turns)
@@ -164,7 +169,50 @@ def transcribe_call(mp3_path: Path) -> dict:
         "turns": [t.to_dict() for t in all_turns],
         "duration": round(duration, 2),
         "engine": f"faster-whisper:{config.WHISPER_MODEL}",
+        "channels_corrected": swapped,
     }
+
+
+# Phrases the AGENT says (bank script). If these land on the "customer" channel,
+# the stereo channels were reversed on this recording.
+_AGENT_MARKERS = (
+    "national bank", "how can i help", "how may i help", "thank you for calling",
+    "is there anything else", "harper valley", "hopper valley", "valley national",
+    "my name is", "have a great day", "have a good day",
+)
+# Phrases the CUSTOMER typically says.
+_CUSTOMER_MARKERS = (
+    "i lost my", "i need to", "i would like to", "i want to", "can you help",
+    "my card", "check my balance", "reset my password", "i need a new",
+)
+
+
+def _score_agentness(turns_text: str) -> int:
+    return sum(1 for m in _AGENT_MARKERS if m in turns_text)
+
+
+def _correct_speaker_swap(turns: list[Turn]) -> bool:
+    """If the agent's script language is on the 'customer' channel, swap labels.
+
+    Returns True if a swap was applied. Uses the *content* (bank greeting /
+    'how can I help' / closing) rather than channel index, so it's robust to
+    recordings that came off the switch with reversed channels.
+    """
+    agent_text = " ".join(t.text.lower() for t in turns if t.speaker == "agent")
+    cust_text = " ".join(t.text.lower() for t in turns if t.speaker == "customer")
+    if not agent_text or not cust_text:
+        return False
+
+    agent_score = _score_agentness(agent_text)
+    cust_score = _score_agentness(cust_text)
+
+    # Only swap when the evidence is clear: the "customer" side sounds much more
+    # like the agent than the "agent" side does.
+    if cust_score >= agent_score + 2:
+        for t in turns:
+            t.speaker = "customer" if t.speaker == "agent" else "agent"
+        return True
+    return False
 
 
 def transcript_to_text(transcript: dict) -> str:
