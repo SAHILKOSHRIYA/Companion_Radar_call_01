@@ -10,6 +10,7 @@ import CustomerDetail from "./pages/CustomerDetail";
 import CallView from "./pages/CallView";
 import Agents from "./pages/Agents";
 import Trends from "./pages/Trends";
+import Quality from "./pages/Quality";
 
 function Shell() {
   const link = ({ isActive }) => (isActive ? "active" : "");
@@ -29,6 +30,7 @@ function Shell() {
           <NavLink to="/customers" className={link}><span className="nav-ico">◍</span> Customers</NavLink>
           <NavLink to="/agents" className={link}><span className="nav-ico">◆</span> Agents</NavLink>
           <NavLink to="/trends" className={link}><span className="nav-ico">≈</span> Trends</NavLink>
+          <NavLink to="/quality" className={link}><span className="nav-ico">✓</span> Quality</NavLink>
         </nav>
       </aside>
       <main className="main">
@@ -40,6 +42,7 @@ function Shell() {
           <Route path="/calls/:sid" element={<CallView />} />
           <Route path="/agents" element={<Agents />} />
           <Route path="/trends" element={<Trends />} />
+          <Route path="/quality" element={<Quality />} />
         </Routes>
       </main>
     </div>

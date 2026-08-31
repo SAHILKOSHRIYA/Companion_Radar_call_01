@@ -15,6 +15,7 @@ export const api = {
   attention: (limit = 50) => get(`/attention?limit=${limit}`),
   trends: () => get("/trends"),
   agents: () => get("/agents"),
+  evaluation: () => get("/evaluation"),
 };
 
 export const audioUrl = (sid) => `/api/audio/${sid}.mp3`;

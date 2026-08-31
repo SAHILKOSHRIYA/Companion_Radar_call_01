@@ -243,6 +243,99 @@ def agents():
     return {"agents": out}
 
 
+@app.get("/api/evaluation")
+def evaluation():
+    """System quality metrics, computed live from stored analyses.
+
+    Reports faithfulness (evidence grounding), coverage (well-formedness), and
+    the engine mix — the research-grounded way to show the system is measured,
+    not merely asserted. Diarization/human-validation come from the offline
+    report if present.
+    """
+    import json as _json
+    MOOD_VOCAB = {"very_negative", "negative", "neutral", "positive", "very_positive"}
+    RES_VOCAB = {"resolved", "unresolved", "partially_resolved", "escalated", "unclear"}
+
+    with SessionLocal() as s:
+        calls = s.query(
+            Call.analysis, Call.summary, Call.transcript, Call.analysis_engine
+        ).all()
+
+    total = len(calls)
+    jt = jv = 0
+    per_field = {k: [0, 0] for k in ["intent", "mood", "resolution", "attention"]}
+    cov = Counter()
+    engines = Counter()
+
+    for analysis, summary, transcript, engine in calls:
+        a = analysis or {}
+        engines[(engine or "unknown").split(":")[0]] += 1
+
+        def tally(field, ev):
+            nonlocal jt, jv
+            if isinstance(ev, dict):
+                per_field[field][1] += 1
+                jt += 1
+                if ev.get("verified"):
+                    per_field[field][0] += 1
+                    jv += 1
+
+        tally("intent", a.get("intent", {}).get("evidence"))
+        mood = a.get("mood", {})
+        tally("mood", (mood.get("shift") or {}).get("evidence") if mood.get("shifted")
+              else mood.get("start_evidence"))
+        tally("resolution", a.get("resolution", {}).get("evidence"))
+        tally("attention", a.get("attention", {}).get("evidence"))
+
+        if a.get("intent", {}).get("summary"):
+            cov["has_intent"] += 1
+        if mood.get("start") in MOOD_VOCAB and mood.get("end") in MOOD_VOCAB:
+            cov["mood_in_vocab"] += 1
+        if a.get("resolution", {}).get("status") in RES_VOCAB:
+            cov["resolution_in_vocab"] += 1
+        if summary and len(summary.split()) <= 40:
+            cov["summary_within_40w"] += 1
+        sc = a.get("attention", {}).get("score")
+        if isinstance(sc, (int, float)) and 0 <= sc <= 100:
+            cov["attention_in_range"] += 1
+        if not mood.get("shifted") or (mood.get("shift") or {}).get("timestamp"):
+            cov["shift_ts_when_shifted"] += 1
+        if (transcript or {}).get("turns"):
+            cov["has_transcript"] += 1
+
+    faithfulness = {
+        "judgments_total": jt,
+        "judgments_verified": jv,
+        "rate": round(jv / jt, 4) if jt else 0.0,
+        "per_field": {
+            k: {"verified": v[0], "total": v[1], "rate": round(v[0] / v[1], 4) if v[1] else 0.0}
+            for k, v in per_field.items()
+        },
+    }
+    coverage = {k: {"count": v, "rate": round(v / total, 4) if total else 0.0} for k, v in cov.items()}
+
+    # Pull diarization + human-validation from the offline report if it exists.
+    diarization = human = None
+    data_dir = os.path.dirname(os.getenv("CALLRADAR_ANALYSIS_DIR", "/data/analysis").rstrip("/"))
+    report_path = os.path.join(data_dir, "eval", "report.json")
+    try:
+        with open(report_path, encoding="utf-8") as f:
+            rep = _json.load(f)
+            diarization = rep.get("diarization")
+            human = rep.get("human_validation")
+    except Exception:
+        pass
+
+    return {
+        "total_calls": total,
+        "engines": dict(engines),
+        "faithfulness": faithfulness,
+        "coverage": coverage,
+        "diarization": diarization,
+        "human_validation": human,
+    }
+
+
 @app.get("/api/audio/{filename}")
 def audio(filename: str):
     # Prevent path traversal; only serve <sid>.mp3 from the audio dir.
