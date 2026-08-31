@@ -1,8 +1,10 @@
-# CallRadar — Conversation Intelligence for a Consumer Bank
+# Companion for CallRadar &amp; the Quality Checks
 
 Turn 1,441 raw support-call recordings into a manager's dashboard: **who called, what they wanted, how their mood moved, whether it got resolved, which calls need attention today — and the exact moment on the call that justifies every judgment.**
 
 You get audio, not transcripts. CallRadar builds everything from the raw `.mp3`s, exactly as they come off the phone system.
+
+**Team:** Sahil Koshriya · Sakshi
 
 ### 📖 Documentation
 
