@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Architecture — Companion for CallRadar</title>
+<link rel="stylesheet" href="_style.css" />
+</head>
+<body>
+<div class="topbar">
+  <div class="radar"></div>
+  <div><h1>Companion for CallRadar</h1><div class="crumbs">Documentation → Architecture</div></div>
+  <div class="spacer"></div>
+  <a class="back" href="index.html">← All docs</a>
+  <button class="tt" id="tt">◐ Theme</button>
+</div>
+<main class="main">
+  <div class="eyebrow">Design</div>
+  <h1 class="title">Architecture &amp; Design</h1>
+  <p class="lede">How the system is built, and why each decision was made — written for an engineer or a
+    judge who wants to understand the design, not just run it.</p>
+
+  <h2>The problem, as engineering constraints</h2>
+  <p>The brief has two halves — turn audio into text, then build intelligence — but the <em>scoring</em> is
+    where the real constraints hide:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Requirement in the brief</th><th>The constraint it imposes</th></tr></thead>
+    <tbody>
+      <tr><td>"work out who said what"</td><td>Speaker attribution must be <strong>correct</strong>, not approximate — a wrong speaker poisons every downstream judgment.</td></tr>
+      <tr><td>"the mood … and the point where it shifted"</td><td>Every judgment needs a <strong>timestamp</strong>, so the transcript must carry real timings.</td></tr>
+      <tr><td>"no evidence scores zero; wrong evidence scores negative"</td><td>Judgments must be <strong>grounded and verifiable</strong> — safer to check the evidence than to trust the model.</td></tr>
+      <tr><td>"do not re-transcribe on every request"</td><td>Analysis must be <strong>precomputed and stored</strong>; the API is a read layer.</td></tr>
+      <tr><td>"run the whole thing … from scratch"</td><td>The system must be <strong>reproducible with no secrets</strong> — degrade gracefully with no API key.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>System overview</h2>
+  <pre><code>recordings (.mp3, 8kHz stereo)          metadata (.json)
+        │                                     │
+        ▼                                     │
+  (1) TRANSCRIBE  transcribe.py               │
+      split channels (ffmpeg) → whisper       │
+      per channel → interleave by time        │
+      + reversed-channel auto-correction      │
+        │  transcript (speakers + timings)    │
+        ▼                                     ▼
+  (2) ANALYZE  analyze.py
+      claude | azure | azure-claude | ollama | heuristic
+      intent · mood+shift · resolution · summary · attention(0-100)
+      · EVIDENCE{ts,quote,speaker}
+        │
+        ▼  (2b) VERIFY EVIDENCE → evidence_score
+  (3) QA / COMPLIANCE  qa.py
+      identity? action confirmed? empathy? repeat? close?
+      → qa_score(0-100) + resolution_risk
+        │  write once
+        ▼
+   PostgreSQL  (one 'calls' table: transcript + analysis + qa)
+        │  read only (never re-transcribe)
+        ▼
+   FastAPI (backend)  ◀────▶  React + Vite (frontend)
+
+   EVALUATE  evaluate.py → faithfulness · diarization · coverage → Quality page</code></pre>
+
+  <h2>The five load-bearing decisions</h2>
+
+  <h3>1 · Channel-split diarization, not an ML diarizer</h3>
+  <p>The recordings are stereo — agent on the left channel, customer on the right. Rather than run a
+    speaker-diarization model to <em>guess</em> who spoke (the usual approach, and a common source of error),
+    we split the channels with ffmpeg and transcribe each independently, then interleave by timestamp. Speaker
+    attribution becomes correct <strong>by construction</strong>. We substantiate it with a number
+    (cross-channel correlation ≈ −0.13 → 100% separation), and auto-correct the ~37 reversed-channel recordings.</p>
+
+  <h3>2 · Evidence as a first-class, verified object</h3>
+  <p>Every judgment carries <code>{timestamp, verbatim quote, speaker}</code>, and a verification pass checks
+    each quote actually appears in the transcript at that timestamp. Unverified citations render in amber.
+    This mirrors exactly where the 2025 summarization-faithfulness literature (FaithBench / FaithJudge) has
+    moved: measure whether a claim is <em>faithful to the source</em>, not whether it matches a gold string.</p>
+
+  <h3>3 · A pluggable analysis engine</h3>
+  <p>Four interchangeable backends chosen at runtime: <code>claude</code>, <code>azure</code> (GPT-4o /
+    GPT-5-mini), <code>azure-claude</code> (Sonnet 5), <code>ollama</code>, and a dependency-free
+    <code>heuristic</code>. A judge with no API key runs the heuristic and still gets a complete,
+    evidence-cited, 100%-coverage system. Structured output is guaranteed on both LLM paths via a forced tool
+    call whose schema <em>is</em> the analysis schema.</p>
+
+  <h3>4 · QA / compliance — "sounded resolved but wasn't"</h3>
+  <p>On top of the analysis, <code>qa.py</code> scores each call against a bank-grade rubric from the
+    transcript: identity verified before a sensitive action? action confirmed? empathy? repeated question?
+    professional open/close? It flags <strong>resolution-risk</strong> calls that closed politely but were
+    never actually completed — the exact failure the problem statement names.</p>
+
+  <h3>5 · Precompute-and-store; the API is a thin read layer</h3>
+  <p>The pipeline writes transcript + analysis + QA into a single PostgreSQL <code>calls</code> table. The
+    FastAPI backend only reads — it never transcribes or calls an LLM on a request.</p>
+
+  <h2>Design trade-offs</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Choice</th><th>Alternative</th><th>Why we chose it</th></tr></thead>
+    <tbody>
+      <tr><td>Channel-split diarization</td><td>ML speaker diarizer</td><td>Correct by construction; cheaper; measurable.</td></tr>
+      <tr><td>Verify evidence post-hoc</td><td>Trust the model's citation</td><td>The scoring penalises wrong evidence; checking is cheap insurance.</td></tr>
+      <tr><td>Faithfulness + coverage metrics</td><td>A single "accuracy %"</td><td>Exact-match is brittle and punishes good-but-reworded answers.</td></tr>
+      <tr><td>Single wide <code>calls</code> table</td><td>Normalised schema</td><td>Matches how data arrives; simpler ingestion; fast enough at this scale.</td></tr>
+      <tr><td>Precompute to Postgres</td><td>Analyse on request</td><td>The brief forbids per-request transcription; better latency.</td></tr>
+      <tr><td>Pluggable engine w/ heuristic floor</td><td>LLM-only</td><td>Guarantees "runs from scratch" with no key.</td></tr>
+    </tbody>
+  </table></div>
+
+  <footer><strong>Companion for CallRadar</strong> — Architecture &amp; Design. See also
+    <a href="formulas.html">Formulas &amp; notation</a>, <a href="index.html">the complete documentation</a>.</footer>
+</main>
+<script>
+  const root=document.documentElement,s=localStorage.getItem("cfcr-theme");
+  if(s)root.setAttribute("data-theme",s);
+  document.getElementById("tt").onclick=()=>{const c=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");const n=c==="dark"?"light":"dark";root.setAttribute("data-theme",n);localStorage.setItem("cfcr-theme",n)};
+</script>
+</body>
+</html>

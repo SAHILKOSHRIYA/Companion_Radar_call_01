@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Formulas &amp; Notation — Companion for CallRadar</title>
+<link rel="stylesheet" href="_style.css" />
+</head>
+<body>
+<div class="topbar">
+  <div class="radar"></div>
+  <div><h1>Companion for CallRadar</h1><div class="crumbs">Documentation → Formulas &amp; Notation</div></div>
+  <div class="spacer"></div>
+  <a class="back" href="index.html">← All docs</a>
+  <button class="tt" id="tt">◐ Theme</button>
+</div>
+<main class="main">
+  <div class="eyebrow">The science</div>
+  <h1 class="title">Formulas, Notation &amp; Logic</h1>
+  <p class="lede">Every number the system reports, derived. We measure the way the 2025 conversation-intelligence
+    and LLM-evaluation literature does — faithfulness and speaker separation — not a brittle exact-match "accuracy".</p>
+
+  <h2>1 · Diarization — channels, not guessing</h2>
+  <p>Let <code>L</code> = agent channel, <code>R</code> = customer channel. We transcribe each separately into
+    turn sets <code>T_L</code> and <code>T_R</code>, then rebuild the real conversation:</p>
+  <div class="formula">T = sort( T_L ∪ T_R )   ordered by turn.start</div>
+
+  <h3>Separation quality</h3>
+  <p>To prove the two channels really are separate speakers, take the Pearson correlation <code>ρ</code>
+    between the two channels' energy envelopes <code>e_L, e_R</code> (100&nbsp;ms windows):</p>
+  <div class="formula">          Σ (e_Lᵢ − ē_L)(e_Rᵢ − ē_R)
+ρ  =  ─────────────────────────────────────
+       √[ Σ(e_Lᵢ − ē_L)²  ·  Σ(e_Rᵢ − ē_R)² ]
+
+separation_quality  =  1 − max(0, ρ)</div>
+  <p>Low (even negative) <code>ρ</code> ⇒ the speakers don't overlap ⇒ attribution is correct by construction.
+    Measured on this dataset: <code>ρ ≈ −0.13</code> → <code>separation_quality = 1.00 (100%)</code>.</p>
+
+  <figure><img src="../handwritten/02-formulas-diarization.jpg" alt="Diarization notes"/><figcaption>Hand-worked: diarization by channels, and the transcript reconstruction.</figcaption></figure>
+  <figure><img src="../handwritten/03-formulas-evidence.jpg" alt="Pearson correlation and evidence verification"/><figcaption>Hand-worked: Pearson ρ, separation quality, and the evidence-verification rule.</figcaption></figure>
+
+  <h2>2 · Evidence verification &amp; faithfulness</h2>
+  <p>Each judgment <code>j</code> carries evidence <code>e_j = (timestamp, quote, speaker)</code>. Verification
+    finds the transcript turn <code>τ</code> at that timestamp+speaker, normalises both, and accepts if the quote
+    appears in the turn <em>or</em> shares ≥ 60% of its significant words:</p>
+  <div class="formula">normalise(s) = lowercase(s) keeping only [a-z0-9 ]
+
+verified(e_j) = 1  if  normalise(quote) ⊆ normalise(τ.text)
+                   or  |Q ∩ B| / |Q|  ≥  0.60
+                0  otherwise      (Q = words(quote), B = words(τ.text))</div>
+
+  <p><strong>Per-call evidence score</strong> (n = judgments checked):</p>
+  <div class="formula">evidence_score = (1/n) · Σⱼ verified(e_j)</div>
+
+  <p><strong>System-wide faithfulness</strong> (over all calls C):</p>
+  <div class="formula">               Σ_c Σ_j verified(e_{c,j})
+faithfulness = ─────────────────────────  = 0.999  (99.9%)
+                 Σ_c (# judgments in c)</div>
+
+  <figure><img src="../handwritten/04-formulas-scores.jpg" alt="Evidence and attention score notes"/><figcaption>Hand-worked: per-call evidence score, system-wide faithfulness, and the attention score.</figcaption></figure>
+
+  <h2>3 · Needs-attention score  A ∈ [0, 100]</h2>
+  <p>Additive signals, then clamped. <code>neg</code> = # negative cues from the customer.</p>
+  <div class="formula">A = 10                                (base)
+  + min(35, 12·neg)                   (customer negativity)
+  + 30 escalated / 28 unresolved / 15 unclear
+  + 20 if mood shifted to negative  (−5 if recovered to positive)
+  + 22 if HIGH_RISK topic / 10 if MED_RISK
+  + 12 if agent repeated a question
+  + 10 if dur ≥ 90s  (5 if ≥ 70s)
+A = clamp(A, 0, 100)
+
+HIGH_RISK = {fraud_dispute, card_lost_stolen, complaint, account_access}
+MED_RISK  = {transaction_issue, fees_charges, loan_mortgage, payment_transfer}</div>
+
+  <h2>4 · QA / compliance score  Q ∈ [0, 100]</h2>
+  <p>Each check <code>k</code> has a pass flag <code>p_k ∈ {0,1}</code> and a weight <code>w_k</code>:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Check</th><th class="num">Weight</th></tr></thead>
+    <tbody>
+      <tr><td>Greeting (opened professionally)</td><td class="num">1</td></tr>
+      <tr><td>Identity verified before a sensitive action</td><td class="num">3 (0 if not required)</td></tr>
+      <tr><td>Action confirmed</td><td class="num">2</td></tr>
+      <tr><td>Empathy shown</td><td class="num">1</td></tr>
+      <tr><td>No repeated question</td><td class="num">1</td></tr>
+      <tr><td>Proper close</td><td class="num">1</td></tr>
+    </tbody>
+  </table></div>
+  <div class="formula">      Σ_k  p_k · w_k
+Q =  ─────────────── × 100        (over checks with w_k > 0)
+        Σ_k  w_k
+
+resolution_risk =
+   (sensitive_action ∧ ¬identity_verified)                    # compliance risk
+ ∨ (sounded_resolved ∧ customer_asked ∧ ¬action_confirmed ∧ status ≠ resolved)</div>
+
+  <figure><img src="../handwritten/05-formulas-qa.jpg" alt="QA score and results notes"/><figcaption>Hand-worked: the QA score, and the measured results on all 1,441 calls.</figcaption></figure>
+
+  <h2>Measured results (full 1,441-call run)</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Parameter</th><th class="num">Value</th></tr></thead>
+    <tbody>
+      <tr><td>Calls</td><td class="num">1,441</td></tr>
+      <tr><td>Customers</td><td class="num">100</td></tr>
+      <tr><td>Agents</td><td class="num">10</td></tr>
+      <tr><td>Faithfulness</td><td class="num" style="color:var(--good)">99.9%</td></tr>
+      <tr><td>Diarization separation</td><td class="num" style="color:var(--good)">100%</td></tr>
+      <tr><td>Coverage</td><td class="num" style="color:var(--good)">100%</td></tr>
+      <tr><td>Resolution-risk calls</td><td class="num" style="color:var(--critical)">195</td></tr>
+    </tbody>
+  </table></div>
+
+  <footer><strong>Companion for CallRadar</strong> — Formulas &amp; Notation. See also
+    <a href="architecture.html">Architecture</a>, <a href="index.html">the complete documentation</a>.</footer>
+</main>
+<script>
+  const root=document.documentElement,s=localStorage.getItem("cfcr-theme");
+  if(s)root.setAttribute("data-theme",s);
+  document.getElementById("tt").onclick=()=>{const c=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");const n=c==="dark"?"light":"dark";root.setAttribute("data-theme",n);localStorage.setItem("cfcr-theme",n)};
+</script>
+</body>
+</html>

@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Companion for CallRadar — Complete Documentation</title>
+<style>
+  :root{
+    --bg:#0e1116; --surface:#151a21; --surface-2:#1b212a; --surface-3:#232b36;
+    --border:#2a3340; --border-2:#37414f;
+    --ink:#e7ecf2; --ink-2:#a7b2c0; --ink-3:#6f7c8c;
+    --accent:#2fd6c3; --accent-2:#4b9bff; --glow:rgba(47,214,195,.16);
+    --good:#2fc7a8; --warning:#e0a93a; --serious:#ef7f45; --critical:#ef5a6e;
+    --c1:#4b9bff; --c3:#2fc7a8;
+    --radius:12px;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:"Segoe UI Variable","Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    --display:"Space Grotesk","Segoe UI Variable Display","Segoe UI",var(--sans);
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f6f7f9; --surface:#ffffff; --surface-2:#f0f2f5; --surface-3:#e7ebef;
+      --border:#dde2e8; --border-2:#c8d0d9;
+      --ink:#141a22; --ink-2:#465262; --ink-3:#78838f;
+      --accent:#0b9c8c; --accent-2:#2f6fd6; --glow:rgba(11,156,140,.12);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --surface:#151a21; --surface-2:#1b212a; --surface-3:#232b36;
+    --border:#2a3340; --border-2:#37414f; --ink:#e7ecf2; --ink-2:#a7b2c0; --ink-3:#6f7c8c;
+    --accent:#2fd6c3; --glow:rgba(47,214,195,.16);
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --surface:#ffffff; --surface-2:#f0f2f5; --surface-3:#e7ebef;
+    --border:#dde2e8; --border-2:#c8d0d9; --ink:#141a22; --ink-2:#465262; --ink-3:#78838f;
+    --accent:#0b9c8c; --glow:rgba(11,156,140,.12);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-2);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* layout */
+  .wrap{display:flex;min-height:100vh}
+  .toc{width:270px;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;
+       background:var(--surface);border-right:1px solid var(--border);padding:24px 18px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+  .radar{position:relative;width:30px;height:30px;border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,transparent 0 30%,var(--glow) 31% 55%,transparent 56%),conic-gradient(from 0deg,var(--accent),transparent 55%);
+    box-shadow:0 0 0 1px var(--border-2),0 0 18px var(--glow)}
+  .radar::after{content:"";position:absolute;inset:0;margin:auto;width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .brand h1{font-family:var(--display);font-size:16px;margin:0;letter-spacing:-.01em;font-weight:600}
+  .brand span{font-size:10.5px;color:var(--ink-3);display:block}
+  .toc nav{margin-top:18px;display:flex;flex-direction:column;gap:1px}
+  .toc nav a{display:block;padding:7px 11px;border-radius:8px;color:var(--ink-2);font-size:13px}
+  .toc nav a:hover{background:var(--surface-2);color:var(--ink);text-decoration:none}
+  .toc nav a.sub{padding-left:24px;font-size:12.5px;color:var(--ink-3)}
+  .toc .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:16px 0 4px 11px;font-weight:600}
+
+  .main{flex:1;min-width:0;max-width:920px;padding:48px 56px 120px}
+  @media (max-width:900px){
+    .toc{display:none}
+    .main{padding:28px 20px 80px}
+  }
+
+  .hero{margin-bottom:40px}
+  .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:10px}
+  h1.title{font-family:var(--display);font-size:40px;line-height:1.1;letter-spacing:-.03em;margin:0 0 12px;text-wrap:balance}
+  .lede{font-size:18px;color:var(--ink-2);max-width:64ch;line-height:1.55}
+  .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1px solid var(--border-2);background:var(--surface);font-size:12.5px;color:var(--ink-2)}
+  .pill b{color:var(--accent);font-family:var(--mono)}
+
+  h2{font-family:var(--display);font-size:26px;letter-spacing:-.02em;margin:56px 0 8px;padding-top:12px;scroll-margin-top:20px;border-top:1px solid var(--border)}
+  h2:first-of-type{border-top:none}
+  h3{font-family:var(--display);font-size:18px;margin:28px 0 6px;letter-spacing:-.01em}
+  h2 + p, h3 + p{margin-top:6px}
+  p{margin:12px 0;max-width:70ch}
+  ul,ol{max-width:70ch;padding-left:22px}
+  li{margin:5px 0}
+  strong{color:var(--ink)}
+
+  .section-note{color:var(--ink-3);font-size:13.5px}
+
+  /* stat tiles */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}
+  .tile{background:linear-gradient(180deg,var(--surface-2),var(--surface));border:1px solid var(--border);border-radius:var(--radius);padding:15px 16px}
+  .tile .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600}
+  .tile .v{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:5px;font-variant-numeric:tabular-nums}
+  .tile .s{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+
+  /* cards / callouts */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin:18px 0}
+  .callout{border-left:3px solid var(--accent);background:var(--surface-2);border-radius:8px;padding:12px 16px;margin:16px 0;font-size:14px;color:var(--ink-2)}
+  .callout.warn{border-left-color:var(--warning)}
+  .callout b{color:var(--ink)}
+
+  /* code + formula */
+  pre{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;overflow-x:auto;margin:16px 0}
+  code{font-family:var(--mono);font-size:13px}
+  pre code{color:var(--ink)}
+  p code,li code,td code{background:var(--surface-3);padding:1px 6px;border-radius:5px;font-size:12.5px;color:var(--accent)}
+  .formula{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--accent-2);border-radius:8px;padding:14px 18px;margin:16px 0;font-family:var(--mono);font-size:14px;color:var(--ink);white-space:pre-wrap;overflow-x:auto}
+
+  /* tables */
+  .tbl{overflow-x:auto;margin:18px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);font-weight:600;padding:9px 12px;border-bottom:1px solid var(--border-2);background:var(--surface-2)}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  td.ok{color:var(--good);text-align:center;font-weight:700}
+  tr:last-child td{border-bottom:none}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+
+  /* images */
+  figure{margin:20px 0}
+  figure img{width:100%;border:1px solid var(--border);border-radius:var(--radius);display:block;background:var(--surface)}
+  figcaption{font-size:12.5px;color:var(--ink-3);margin-top:8px;text-align:center}
+
+  /* bars */
+  .bar{display:flex;align-items:center;gap:12px;margin:8px 0}
+  .bar .bl{width:220px;flex-shrink:0;font-size:13px;color:var(--ink-2);text-align:right}
+  .bar .bt{flex:1;height:20px;background:var(--surface-3);border-radius:5px;overflow:hidden}
+  .bar .bt i{display:block;height:100%;border-radius:5px}
+  .bar .bv{width:48px;font-variant-numeric:tabular-nums;font-weight:600;font-size:13px}
+
+  .theme-toggle{position:fixed;top:16px;right:20px;z-index:10;background:var(--surface);border:1px solid var(--border-2);color:var(--ink-2);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:var(--sans)}
+  .theme-toggle:hover{color:var(--ink);border-color:var(--accent)}
+
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--ink-3);font-size:13px}
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="tt">◐ Theme</button>
+<div class="wrap">
+  <aside class="toc">
+    <div class="brand">
+      <div class="radar"></div>
+      <div><h1>Companion for CallRadar</h1><span>Complete Documentation</span></div>
+    </div>
+    <nav>
+      <div class="grp">Overview</div>
+      <a href="#intro">What it is</a>
+      <a href="#results">Results at a glance</a>
+      <a href="#brief">The brief, mapped</a>
+      <a href="#different">Why we stand out</a>
+      <div class="grp">The System</div>
+      <a href="#screens">Dashboard & API</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#handwritten">Hand-written design</a>
+      <a href="#pipeline">The pipeline (5 stages)</a>
+      <div class="grp">The Science</div>
+      <a href="#criteria">Measurement criteria</a>
+      <a href="#formulas">Formulas & notation</a>
+      <a href="#example">Example output</a>
+      <div class="grp">Run & Submit</div>
+      <a href="#run">Run from scratch</a>
+      <a href="#api">API reference</a>
+      <a href="#links">Live links & repo</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="hero" id="intro">
+      <div class="eyebrow">Conversation Intelligence · Consumer Bank</div>
+      <h1 class="title">Companion for CallRadar &amp; the Quality Checks</h1>
+      <p class="lede">Turn 1,441 raw support-call recordings into a manager's dashboard — who called,
+        what they wanted, how their mood moved, whether it was <em>really</em> resolved, which calls
+        need attention today — and <strong>the exact moment on the call that proves every judgment.</strong></p>
+      <div class="pill-row">
+        <span class="pill">Calls <b>1,441</b></span>
+        <span class="pill">Faithfulness <b>99.9%</b></span>
+        <span class="pill">Diarization <b>100%</b></span>
+        <span class="pill">Resolution-risk <b>195</b></span>
+        <span class="pill">API keys needed <b>0</b></span>
+      </div>
+    </div>
+
+    <p>You get audio, not transcripts. Companion for CallRadar builds everything from the raw
+      <code>.mp3</code>s exactly as they come off the phone system — stereo, 8&nbsp;kHz, agent on the
+      left channel and customer on the right. Every claim it makes is backed by a verified quote, and
+      it measures its own quality the way the 2025 research literature does.</p>
+
+    <!-- RESULTS -->
+    <h2 id="results">Results at a glance</h2>
+    <p class="section-note">Measured on the full 1,441-call run, served live at <code>/api/evaluation</code>.</p>
+    <div class="tiles">
+      <div class="tile"><div class="k">Calls analysed</div><div class="v">1,441</div><div class="s">the full dataset</div></div>
+      <div class="tile"><div class="k">Customers · Agents</div><div class="v">100 · 10</div></div>
+      <div class="tile"><div class="k">Faithfulness</div><div class="v" style="color:var(--good)">99.9%</div><div class="s">evidence verified</div></div>
+      <div class="tile"><div class="k">Diarization</div><div class="v" style="color:var(--good)">100%</div><div class="s">channel separation</div></div>
+      <div class="tile"><div class="k">Coverage</div><div class="v" style="color:var(--good)">100%</div><div class="s">well-formed outputs</div></div>
+      <div class="tile"><div class="k">Resolution risk</div><div class="v" style="color:var(--critical)">195</div><div class="s">sounded resolved, wasn't</div></div>
+    </div>
+
+    <!-- BRIEF MAPPING -->
+    <h2 id="brief">The brief, mapped to the implementation</h2>
+    <p>Every requirement in the problem statement is implemented and verified on all 1,441 calls.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>The brief requires</th><th style="width:44px">✔</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>Speech to text</td><td class="ok">✓</td><td><code>pipeline/transcribe.py</code> — faster-whisper</td></tr>
+        <tr><td>Work out who said what</td><td class="ok">✓</td><td>Channel-split (agent = L, customer = R) — correct by construction</td></tr>
+        <tr><td>Turn-by-turn with timings</td><td class="ok">✓</td><td>Interleaved turns + word-level timings</td></tr>
+        <tr><td>Per customer: name, history, recording + transcript</td><td class="ok">✓</td><td>Customers page → <code>/api/customers</code></td></tr>
+        <tr><td>Per call: intent</td><td class="ok">✓</td><td><code>analysis.intent</code></td></tr>
+        <tr><td>Per call: mood + the point where it shifted</td><td class="ok">✓</td><td><code>analysis.mood.shift.timestamp</code> + mood timeline</td></tr>
+        <tr><td>Per call: resolution</td><td class="ok">✓</td><td><code>analysis.resolution.status</code></td></tr>
+        <tr><td>Per call: summary (≤ 40 words)</td><td class="ok">✓</td><td>Validated ≤ 40 words on 100% of calls</td></tr>
+        <tr><td>Needs a manager's attention, ranked</td><td class="ok">✓</td><td>Needs Attention page → <code>/api/attention</code></td></tr>
+        <tr><td>Which issues are trending</td><td class="ok">✓</td><td>Trends page → <code>/api/trends</code></td></tr>
+        <tr><td>Per-agent volumes, handle times, outcomes</td><td class="ok">✓</td><td>Agents page → <code>/api/agents</code></td></tr>
+        <tr><td>Every judgment cites the moment — timestamp + words</td><td class="ok">✓</td><td>Every judgment carries <code>evidence{timestamp, quote, speaker}</code></td></tr>
+        <tr><td>Do not re-transcribe on every request</td><td class="ok">✓</td><td>Precomputed once → PostgreSQL; the API only reads</td></tr>
+        <tr><td>Git repo + README to run from scratch</td><td class="ok">✓</td><td>This repo; <code>docker compose run --rm pipeline</code></td></tr>
+      </tbody>
+    </table></div>
+
+    <!-- DIFFERENT -->
+    <h2 id="different">Why we stand out</h2>
+    <p>Most entries produce a transcript, an LLM summary, and a table. Here's the difference:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>A typical entry</th><th>Companion for CallRadar</th></tr></thead>
+      <tbody>
+        <tr><td>An ML diarizer <em>guesses</em> the speakers, and gets some wrong</td><td><strong>Splits the stereo channels</strong> — attribution is correct by construction. Auto-corrects the ~37 reversed-channel recordings</td></tr>
+        <tr><td>The model <em>says</em> it's citing a moment; nobody checks</td><td>Every quote is <strong>verified against the transcript</strong> at its timestamp — <strong>99.9% faithfulness measured</strong></td></tr>
+        <tr><td>"It works" / an unverifiable "X% accurate"</td><td>We <strong>measure ourselves</strong> the way the 2025 research does — faithfulness, diarization, coverage</td></tr>
+        <tr><td>Summarises what was said</td><td>Flags the calls that <strong>sounded resolved but weren't</strong> — money moved with no identity check</td></tr>
+        <tr><td>Needs API keys / a specific cloud</td><td>Runs <strong>fully offline</strong>; add Claude/Azure to upgrade</td></tr>
+      </tbody>
+    </table></div>
+
+    <!-- SCREENS -->
+    <h2 id="screens">The dashboard &amp; the API</h2>
+    <h3>Frontend — the manager's Command Center</h3>
+    <figure>
+      <img src="../screenshots/frontend-overview.png" alt="Command Center dashboard" />
+      <figcaption>Headline signals, the calls needing attention today, the "sounded resolved but wasn't" panel, and team-wide coaching gaps.</figcaption>
+    </figure>
+    <h3>Per-call view — recording, transcript, evidence, mood, QA</h3>
+    <figure>
+      <img src="../screenshots/frontend-call.png" alt="Per-call view" />
+      <figcaption>Playable recording, turn-by-turn transcript, evidence-cited judgments (click a timestamp to hear it), mood timeline, and the QA / compliance breakdown.</figcaption>
+    </figure>
+    <h3>Backend — the required API contract</h3>
+    <figure>
+      <img src="../screenshots/backend-api.png" alt="API JSON response" />
+      <figcaption><code>GET /api/calls/{sid}</code> returns the transcript with speakers + timings, intent, mood + shift, resolution, ≤40-word summary, 0–100 attention score, QA, and the evidence behind every judgment.</figcaption>
+    </figure>
+
+    <!-- ARCHITECTURE -->
+    <h2 id="architecture">Architecture</h2>
+    <p>Data flows one way at build time (audio → transcript → analysis → QA → Postgres) and one way at
+      request time (Postgres → API → UI). The two are decoupled: the pipeline can be re-run or swapped to
+      a different engine without touching the serving layer, and the API never pays transcription cost.</p>
+    <pre><code>recordings (.mp3, 8kHz stereo)          metadata (.json)
+        │                                     │
+        ▼                                     │
+  (1) TRANSCRIBE  transcribe.py               │
+      split channels (ffmpeg) → whisper       │
+      per channel → interleave by time        │
+      + reversed-channel auto-correction      │
+        │  transcript (speakers + timings)    │
+        ▼                                     ▼
+  (2) ANALYZE  analyze.py   (pluggable engine: claude | azure | azure-claude | ollama | heuristic)
+      intent · mood+shift · resolution · summary · attention(0-100) · EVIDENCE{ts,quote,speaker}
+        │
+        ▼  (2b) VERIFY EVIDENCE — each quote checked vs transcript → evidence_score
+  (3) QA / COMPLIANCE  qa.py
+      identity? action confirmed? empathy? repeat? close?  →  qa_score(0-100) + resolution_risk
+        │  write once
+        ▼
+   PostgreSQL  (one 'calls' table: transcript + analysis + qa)
+        │  read only (never re-transcribe)
+        ▼
+   FastAPI (backend)  ◀────▶  React + Vite (frontend)
+
+   EVALUATE  evaluate.py  reads the DB → faithfulness · diarization · coverage → Quality page</code></pre>
+
+    <!-- HANDWRITTEN -->
+    <h2 id="handwritten">Hand-written design &amp; formulation</h2>
+    <p>The full architecture, the logic behind each stage, and every formula — worked out by hand.</p>
+    <figure><img src="../handwritten/01-architecture.png" alt="Full architecture (hand-drawn)"/><figcaption>Full architecture: raw audio → transcript → analysis → evidence → QA → DB → API → dashboard.</figcaption></figure>
+    <figure><img src="../handwritten/02-formulas-diarization.jpg" alt="Diarization formulas"/><figcaption>Diarization — why channels, not guessing; the transcript reconstruction.</figcaption></figure>
+    <figure><img src="../handwritten/03-formulas-evidence.jpg" alt="Pearson correlation and evidence verification"/><figcaption>Pearson correlation ρ, separation quality, and evidence-verification logic.</figcaption></figure>
+    <figure><img src="../handwritten/04-formulas-scores.jpg" alt="Score formulas"/><figcaption>Per-call evidence score, system-wide faithfulness, and the needs-attention score.</figcaption></figure>
+    <figure><img src="../handwritten/05-formulas-qa.jpg" alt="QA formulas and results"/><figcaption>QA / compliance score and the measured results on all 1,441 calls.</figcaption></figure>
+
+    <!-- PIPELINE -->
+    <h2 id="pipeline">The pipeline — five stages</h2>
+    <h3>1 · Transcribe (channel-split diarization)</h3>
+    <p>The recordings are stereo — agent left, customer right. Instead of guessing "who spoke" with an ML
+      diarizer, we split the channels and transcribe each independently, then interleave by timestamp.
+      Speaker attribution is correct <strong>by construction</strong>.</p>
+    <pre><code># c0=c0 = left(agent), c0=c1 = right(customer)
+ffmpeg -i call.mp3 -af "pan=mono|c0=c0" -ar 16000 -ac 1 agent.wav
+all_turns  = transcribe(agent_wav, "agent")
+all_turns += transcribe(cust_wav,  "customer")
+all_turns.sort(key=lambda t: t.start)   # rebuild the real conversation</code></pre>
+    <h3>2 · Analyze (evidence-cited, pluggable engine)</h3>
+    <p>A single tool whose input schema <em>is</em> the analysis schema forces the model to return every
+      judgment with an <code>{timestamp, quote, speaker}</code> evidence object. Runs with no key
+      (heuristic), or upgrades to Claude / Azure OpenAI.</p>
+    <h3>2b · Verify evidence</h3>
+    <p>Each cited quote is checked against the transcript turn at that timestamp (fuzzy, ≥ 60% word overlap).
+      Unverified citations are flagged. This is how we defend against the "wrong evidence scores negative" rule.</p>
+    <h3>3 · QA / compliance</h3>
+    <p>A bank-grade rubric scored from the transcript: identity verified before a sensitive action? action
+      confirmed? empathy? repeated question? professional open/close? → a 0–100 QA score and a
+      <strong>resolution-risk</strong> flag for calls that closed politely but were never actually completed.</p>
+    <h3>4 · Store &amp; 5 · Serve</h3>
+    <p>Everything is written once into a PostgreSQL <code>calls</code> table. FastAPI only reads — it never
+      re-transcribes on a request.</p>
+
+    <!-- CRITERIA -->
+    <h2 id="criteria">Measurement criteria &amp; results</h2>
+    <p>We do <strong>not</strong> claim a single brittle "accuracy %". The conversation-intelligence and
+      LLM-evaluation literature (WER for speech; FaithBench / FaithJudge / LLM-as-a-judge, 2025) measures
+      <strong>faithfulness</strong> — is a claim grounded in the source? — and warns that exact-match scoring
+      punishes good-but-reworded answers. So we measure on the axes that matter:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Criterion</th><th>What it means</th><th>How it's computed</th><th class="num">Result</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Faithfulness</strong></td><td>Is every judgment backed by a quote that really appears at the cited time?</td><td><code>verified / total judgments</code> (≥ 60% word overlap)</td><td class="num" style="color:var(--good)">99.9%</td></tr>
+        <tr><td><strong>Diarization separation</strong></td><td>Are the two speakers genuinely separate?</td><td><code>1 − max(0, ρ)</code>, ρ = cross-channel energy correlation</td><td class="num" style="color:var(--good)">100%</td></tr>
+        <tr><td><strong>Coverage</strong></td><td>Is every output well-formed?</td><td>summary ≤ 40 words, valid vocab, attention ∈ [0,100], shift ts present, transcript present</td><td class="num" style="color:var(--good)">100%</td></tr>
+        <tr><td><strong>Avg QA score</strong></td><td>How well were calls handled?</td><td>weighted compliance checks → 0–100</td><td class="num">57.4</td></tr>
+        <tr><td><strong>Resolution risk</strong></td><td>"Sounded resolved but wasn't"</td><td>compliance / confirmation rule</td><td class="num" style="color:var(--critical)">195</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Team-wide coaching gaps (from the QA layer)</h3>
+    <div class="card">
+      <div class="bar"><div class="bl">Acknowledged / showed empathy</div><div class="bt"><i style="width:6%;background:var(--critical)"></i></div><div class="bv">6%</div></div>
+      <div class="bar"><div class="bl">Verified identity before sensitive action</div><div class="bt"><i style="width:7%;background:var(--critical)"></i></div><div class="bv">7%</div></div>
+      <div class="bar"><div class="bl">Confirmed the action was completed</div><div class="bt"><i style="width:46%;background:var(--serious)"></i></div><div class="bv">46%</div></div>
+      <div class="bar"><div class="bl">Did not repeat the same question</div><div class="bt"><i style="width:65%;background:var(--warning)"></i></div><div class="bv">65%</div></div>
+      <div class="bar"><div class="bl">Closed the call properly</div><div class="bt"><i style="width:96%;background:var(--good)"></i></div><div class="bv">96%</div></div>
+      <div class="bar"><div class="bl">Opened professionally</div><div class="bt"><i style="width:97%;background:var(--good)"></i></div><div class="bv">97%</div></div>
+    </div>
+
+    <!-- FORMULAS -->
+    <h2 id="formulas">Formulas &amp; notation</h2>
+
+    <h3>Diarization — separation quality</h3>
+    <p>Let <code>L</code> = agent channel, <code>R</code> = customer channel; transcribe each into turn sets
+      <code>T_L</code>, <code>T_R</code>. The final transcript is <code>T = sort(T_L ∪ T_R)</code> by
+      <code>turn.start</code>. To prove the channels are genuinely separate speakers, take the Pearson
+      correlation <code>ρ</code> between the two channels' energy envelopes <code>e_L, e_R</code> (100 ms windows):</p>
+    <div class="formula">          Σ (e_Lᵢ − ē_L)(e_Rᵢ − ē_R)
+ρ  =  ─────────────────────────────────────
+       √[ Σ(e_Lᵢ − ē_L)²  ·  Σ(e_Rᵢ − ē_R)² ]
+
+separation_quality  =  1 − max(0, ρ)
+
+Measured on this dataset:  ρ ≈ −0.13  →  separation_quality = 1.00 (100%)</div>
+    <p>Low (even negative) ρ ⇒ the two speakers don't overlap ⇒ attribution is correct by construction.</p>
+
+    <h3>Evidence verification &amp; faithfulness</h3>
+    <p>Each judgment <code>j</code> carries evidence <code>e_j = (timestamp, quote, speaker)</code>.
+      Verification finds the transcript turn <code>τ</code> at that timestamp+speaker and accepts if the quote
+      appears in the turn <em>or</em> shares ≥ 60% of its significant words:</p>
+    <div class="formula">normalise(s) = lowercase(s) keeping only [a-z0-9 ]
+
+verified(e_j) = 1  if  normalise(quote) ⊆ normalise(τ.text)
+                   or  |Q ∩ B| / |Q|  ≥  0.60
+                0  otherwise      (Q = words(quote), B = words(τ.text))
+
+per-call evidence score  =  (1/n) · Σⱼ verified(e_j)
+
+               Σ_c Σ_j verified(e_{c,j})
+faithfulness = ─────────────────────────  = 0.999  (99.9%)
+                 Σ_c (# judgments in c)</div>
+
+    <h3>Needs-attention score  A ∈ [0, 100]</h3>
+    <div class="formula">A = 10                                (base)
+  + min(35, 12·neg)                   (customer negativity)
+  + 30 escalated / 28 unresolved / 15 unclear
+  + 20 if mood shifted to negative  (−5 if recovered to positive)
+  + 22 if HIGH_RISK topic / 10 if MED_RISK
+  + 12 if agent repeated a question
+  + 10 if dur ≥ 90s  (5 if ≥ 70s)
+A = clamp(A, 0, 100)
+
+HIGH_RISK = {fraud_dispute, card_lost_stolen, complaint, account_access}
+MED_RISK  = {transaction_issue, fees_charges, loan_mortgage, payment_transfer}</div>
+
+    <h3>QA / compliance score  Q ∈ [0, 100]</h3>
+    <p>Each check <code>k</code> has a pass flag <code>p_k ∈ {0,1}</code> and a weight <code>w_k</code>
+      (identity = 3, action = 2, greeting / empathy / no-repeat / close = 1 each):</p>
+    <div class="formula">      Σ_k  p_k · w_k
+Q =  ─────────────── × 100        (over checks with w_k > 0)
+        Σ_k  w_k
+
+resolution_risk =
+   (sensitive_action ∧ ¬identity_verified)                    # compliance risk
+ ∨ (sounded_resolved ∧ customer_asked ∧ ¬action_confirmed ∧ status ≠ resolved)</div>
+
+    <!-- EXAMPLE -->
+    <h2 id="example">Example output (real, from the API)</h2>
+    <p>A payment/card call that <em>looks</em> fine — polite close — but the system catches the compliance failure:</p>
+    <pre><code>{
+  "customer_name": "Jennifer Rodriguez",
+  "intent_summary": "Replace a lost credit card",
+  "mood_start": "neutral", "mood_end": "neutral",
+  "resolution_status": "unclear",
+  "summary": "Jennifer called to replace a lost credit card. The agent confirmed
+              which card but never verified her identity or explicitly confirmed a
+              replacement was ordered, then abruptly ended the call.",
+  "attention_score": 65,
+  "qa_score": 22,
+  "resolution_risk": true,
+  "evidence_score": 1.0,
+  "resolution": {
+    "status": "unclear",
+    "evidence": { "timestamp": "00:42",
+                  "quote": "Great. Thanks very much. Bye.",
+                  "speaker": "agent", "verified": true }
+  },
+  "qa": {
+    "resolution_risk_reasons": [
+      "a sensitive action (card / password / transfer) was taken without
+       verifying the customer's identity"
+    ]
+  }
+}</code></pre>
+    <p>Every field is backed by a verified quote — click any timestamp in the dashboard and it jumps the audio to that exact second.</p>
+
+    <!-- RUN -->
+    <h2 id="run">Run it from scratch</h2>
+    <p class="section-note">Prerequisites: Docker + Docker Compose. Nothing else. Runs with <strong>no API keys</strong>.</p>
+    <pre><code># 1. Load the dataset into ./data  (accepts the zip OR an extracted folder)
+python scripts/load_data.py &lt;callradar-data.zip&gt;
+
+# 2. Bring up Postgres, the API, and the dashboard
+docker compose up -d --build
+
+# 3. Turn the recordings into transcripts + analysis  (THE key step)
+docker compose run --rm pipeline
+
+# 4. Add the QA / compliance layer + quality metrics
+docker compose run --rm pipeline python -m pipeline.compute_qa
+docker compose run --rm pipeline python -m pipeline.evaluate
+
+# 5. Open the dashboard → http://localhost:3000   (API → http://localhost:8000)</code></pre>
+    <div class="callout"><b>Premium analysis (optional):</b> set <code>ANTHROPIC_API_KEY</code> or the
+      <code>AZURE_OPENAI_*</code> / <code>AZURE_CLAUDE_*</code> variables and run
+      <code>docker compose run --rm pipeline python -m pipeline.enrich --top 100</code> to upgrade the
+      highest-attention calls to LLM-grade analysis. The engine is model-agnostic.</div>
+
+    <!-- API -->
+    <h2 id="api">API reference</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Endpoint</th><th>Returns</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /api/calls/{sid}</code></td><td>Full per-call: transcript (speakers + timings), intent, mood + shift, resolution, ≤40-word summary, attention score, QA, evidence</td></tr>
+        <tr><td><code>GET /api/customers</code></td><td>Every customer with call counts and peak attention</td></tr>
+        <tr><td><code>GET /api/customers/{name}</code></td><td>A customer's full call history</td></tr>
+        <tr><td><code>GET /api/attention</code></td><td>Ranked "needs a manager's attention today"</td></tr>
+        <tr><td><code>GET /api/qa</code></td><td>QA-risk-ranked calls ("sounded resolved but wasn't")</td></tr>
+        <tr><td><code>GET /api/qa/stats</code></td><td>Team-wide QA metrics and coaching gaps</td></tr>
+        <tr><td><code>GET /api/evaluation</code></td><td>System quality: faithfulness, diarization, coverage</td></tr>
+        <tr><td><code>GET /api/trends</code></td><td>Trending issues across all calls</td></tr>
+        <tr><td><code>GET /api/agents</code></td><td>Per-agent volumes, handle times, and outcomes</td></tr>
+        <tr><td><code>GET /api/audio/{sid}.mp3</code></td><td>The playable recording</td></tr>
+        <tr><td><code>GET /api/stats</code></td><td>Dashboard headline numbers</td></tr>
+      </tbody>
+    </table></div>
+
+    <!-- LINKS -->
+    <h2 id="links">Live links &amp; repository</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Resource</th><th>Link</th></tr></thead>
+      <tbody>
+        <tr><td>GitHub repository</td><td><a href="https://github.com/SAHILKOSHRIYA/Companion_Radar_call_01">github.com/SAHILKOSHRIYA/Companion_Radar_call_01</a></td></tr>
+        <tr><td>Dashboard (local)</td><td><code>http://localhost:3000</code></td></tr>
+        <tr><td>API (local)</td><td><code>http://localhost:8000</code></td></tr>
+        <tr><td>Architecture doc</td><td><a href="architecture.html">architecture.html</a> · <a href="../ARCHITECTURE.md">ARCHITECTURE.md</a></td></tr>
+        <tr><td>Formulas &amp; notation</td><td><a href="formulas.html">formulas.html</a> · <a href="../HANDWRITTEN_REFERENCE.md">HANDWRITTEN_REFERENCE.md</a></td></tr>
+        <tr><td>Demo walkthrough</td><td><a href="demo.html">demo.html</a> · <a href="../DEMO.md">DEMO.md</a></td></tr>
+      </tbody>
+    </table></div>
+
+    <footer>
+      <strong>Companion for CallRadar &amp; the Quality Checks</strong> — conversation intelligence over 1,441 consumer-bank support calls.<br>
+      Stack: faster-whisper · FastAPI · PostgreSQL · React/Vite · Docker Compose. Runs from scratch with no API keys.
+    </footer>
+  </main>
+</div>
+
+<script>
+  // theme toggle: stamp data-theme on <html>, remembers choice
+  const root = document.documentElement;
+  const saved = localStorage.getItem("cfcr-theme");
+  if (saved) root.setAttribute("data-theme", saved);
+  document.getElementById("tt").addEventListener("click", () => {
+    const cur = root.getAttribute("data-theme")
+      || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    const next = cur === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("cfcr-theme", next);
+  });
+</script>
+</body>
+</html>

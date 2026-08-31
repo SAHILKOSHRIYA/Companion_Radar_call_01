@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Walkthrough — Companion for CallRadar</title>
+<link rel="stylesheet" href="_style.css" />
+</head>
+<body>
+<div class="topbar">
+  <div class="radar"></div>
+  <div><h1>Companion for CallRadar</h1><div class="crumbs">Documentation → Walkthrough</div></div>
+  <div class="spacer"></div>
+  <a class="back" href="index.html">← All docs</a>
+  <button class="tt" id="tt">◐ Theme</button>
+</div>
+<main class="main">
+  <div class="eyebrow">Guided tour</div>
+  <h1 class="title">Dashboard Walkthrough</h1>
+  <p class="lede">A tour of the product in the order that lands every differentiator: the command center, one
+    call end-to-end, the quality/measurement story, and the run-from-scratch guarantee.</p>
+
+  <h2>Setup</h2>
+  <pre><code>docker compose up -d          # db + api + web
+docker compose ps             # confirm all 3 are healthy
+# → dashboard http://localhost:3000 · API http://localhost:8000</code></pre>
+  <div class="callout">If the database is empty on a fresh machine, <code>./scripts/restore.sh</code> brings
+    the whole analysed dataset back in seconds — no re-transcription.</div>
+
+  <h2>The 30-second opening</h2>
+  <p>"Every bank records its support calls 'for quality' — and nobody listens to them. A manager who owns 300
+    calls a day can review maybe five. Companion for CallRadar listens to all 1,441. It turns raw recordings
+    into the five things a manager needs — who called, what they wanted, whether their mood turned, whether it
+    was really resolved — and <strong>the exact second on the call that proves every one of those claims.</strong>"</p>
+
+  <h2>Beat 1 — The Command Center</h2>
+  <figure><img src="../screenshots/frontend-overview.png" alt="Command Center"/><figcaption>1,441 calls at a glance.</figcaption></figure>
+  <p>"Nine need a manager today. But look — <strong>195 calls that <em>sounded</em> resolved but weren't.</strong>
+    That's the number no manual review would ever find. Evidence coverage is 100% — every judgment is backed by
+    a verified quote. And across the whole team, agents verified customer identity on only 7% of sensitive calls —
+    a compliance finding worth the entire product."</p>
+
+  <h2>Beat 2 — One call, end to end</h2>
+  <figure><img src="../screenshots/frontend-call.png" alt="Per-call view"/><figcaption>Recording, transcript, evidence, mood timeline, QA.</figcaption></figure>
+  <ol>
+    <li><strong>Recording + transcript</strong> — raw audio in, turn-by-turn out. Agent left channel, customer right.</li>
+    <li><strong>The evidence</strong> — click any judgment's timestamp: it jumps the audio to that exact second and highlights the line.</li>
+    <li><strong>The summary</strong> — 40 words, and specific: it caught that the agent moved money but never verified identity.</li>
+    <li><strong>QA &amp; Compliance</strong> — this call is marked <em>Resolved</em> with a positive mood. It <em>sounds</em> fine. But it's flagged: money transferred with no identity verification — a fraud and compliance risk. Every check cites its moment.</li>
+  </ol>
+
+  <h2>Beat 3 — "How do we know it's right?"</h2>
+  <p>"Most teams show a working demo. We show it's <em>measured</em>: <strong>faithfulness 99.9%</strong> (we
+    verify each quote actually appears at the cited time — this is how we defend against 'wrong evidence scores
+    negative'), <strong>diarization 100% separation</strong> (channel-split makes attribution correct by
+    construction), and <strong>coverage 100%</strong>."</p>
+
+  <h2>Beat 4 — Run it yourself</h2>
+  <p>"It all runs from <code>docker compose up</code>, then one pipeline command turns the recordings into
+    everything you've seen. <strong>No API keys required</strong> — there's a fully offline engine. Plug in
+    Claude or Azure OpenAI and the top calls get LLM-grade analysis. Transcription never re-runs on a request;
+    it's all precomputed in Postgres."</p>
+
+  <h2>Questions you'll get, and the answers</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+    <tbody>
+      <tr><td>How is "who said what" so accurate?</td><td>Stereo channels — agent left, customer right. We split and transcribe separately, so attribution is correct by construction, not guessed.</td></tr>
+      <tr><td>What if the model makes up evidence?</td><td>We verify every quote against the transcript at its timestamp. Unverified ones show in amber. Measured faithfulness is 99.9%.</td></tr>
+      <tr><td>What's your accuracy?</td><td>We deliberately don't quote a brittle exact-match number — the research shows it punishes good-but-reworded answers. We measure faithfulness, diarization, and coverage.</td></tr>
+      <tr><td>Does it need an API key?</td><td>No — it runs fully offline. Add Claude or Azure OpenAI to upgrade the calls that matter.</td></tr>
+      <tr><td>The "resolution risk" — is that real?</td><td>Yes. It flags calls that closed politely but were never confirmed done, or moved money without identity verification. Every flag cites the moment.</td></tr>
+    </tbody>
+  </table></div>
+
+  <footer><strong>Companion for CallRadar</strong> — Walkthrough. See also
+    <a href="architecture.html">Architecture</a>, <a href="formulas.html">Formulas</a>,
+    <a href="index.html">the complete documentation</a>.</footer>
+</main>
+<script>
+  const root=document.documentElement,s=localStorage.getItem("cfcr-theme");
+  if(s)root.setAttribute("data-theme",s);
+  document.getElementById("tt").onclick=()=>{const c=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");const n=c==="dark"?"light":"dark";root.setAttribute("data-theme",n);localStorage.setItem("cfcr-theme",n)};
+</script>
+</body>
+</html>
