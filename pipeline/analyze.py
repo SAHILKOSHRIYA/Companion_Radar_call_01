@@ -22,13 +22,12 @@ from .prompts import SYSTEM_PROMPT, ANALYSIS_SCHEMA, build_user_prompt
 # Engine selection
 # ---------------------------------------------------------------------------
 def _resolve_engine() -> str:
-    if config.ANALYSIS_ENGINE == "claude":
-        return "claude"
-    if config.ANALYSIS_ENGINE == "ollama":
-        return "ollama"
-    if config.ANALYSIS_ENGINE == "heuristic":
-        return "heuristic"
-    # auto
+    forced = config.ANALYSIS_ENGINE
+    if forced in ("claude", "azure", "ollama", "heuristic"):
+        return forced
+    # auto: prefer Azure if configured, then Claude, then Ollama, else heuristic
+    if config.AZURE_OPENAI_ENDPOINT and config.AZURE_OPENAI_KEY:
+        return "azure"
     if config.ANTHROPIC_API_KEY:
         return "claude"
     return "ollama"
@@ -64,6 +63,55 @@ def _analyze_claude(customer: str, agent: str, transcript_text: str) -> dict:
     data = next(b.input for b in resp.content if b.type == "tool_use")
     data = dict(data)  # tool_use.input is a plain dict
     data["_engine"] = f"claude:{config.CLAUDE_MODEL}"
+    return data
+
+
+# ---------------------------------------------------------------------------
+# Azure OpenAI backend (GPT-4o) — uses function-calling for guaranteed schema.
+# ---------------------------------------------------------------------------
+def _analyze_azure(customer: str, agent: str, transcript_text: str) -> dict:
+    """Analyse a call with Azure OpenAI (e.g. GPT-4o).
+
+    We force a function call whose parameters ARE our analysis schema, so the
+    model must return a schema-valid object — the same guaranteed-structure
+    trick used for Claude, via OpenAI's tool/function-calling.
+    """
+    import httpx
+
+    url = (
+        f"{config.AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
+        f"{config.AZURE_OPENAI_DEPLOYMENT}/chat/completions"
+        f"?api-version={config.AZURE_OPENAI_API_VERSION}"
+    )
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "record_call_analysis",
+            "description": "Record the structured, evidence-cited analysis of the call.",
+            "parameters": ANALYSIS_SCHEMA,
+        },
+    }]
+    body = {
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": build_user_prompt(customer, agent, transcript_text)},
+        ],
+        "tools": tools,
+        "tool_choice": {"type": "function", "function": {"name": "record_call_analysis"}},
+        "temperature": 0.2,
+        "max_tokens": 2000,
+    }
+    r = httpx.post(
+        url,
+        headers={"api-key": config.AZURE_OPENAI_KEY, "Content-Type": "application/json"},
+        json=body,
+        timeout=120,
+    )
+    r.raise_for_status()
+    msg = r.json()["choices"][0]["message"]
+    args = msg["tool_calls"][0]["function"]["arguments"]
+    data = json.loads(args)
+    data["_engine"] = f"azure:{config.AZURE_OPENAI_DEPLOYMENT}"
     return data
 
 
@@ -440,6 +488,8 @@ def analyze_call(customer: str, agent: str, transcript: dict, transcript_text: s
     try:
         if engine == "claude":
             result = _analyze_claude(customer, agent, transcript_text)
+        elif engine == "azure":
+            result = _analyze_azure(customer, agent, transcript_text)
         elif engine == "ollama":
             result = _analyze_ollama(customer, agent, transcript_text)
         else:

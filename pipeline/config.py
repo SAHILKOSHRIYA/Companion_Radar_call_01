@@ -33,15 +33,27 @@ WHISPER_BEAM_SIZE = int(os.getenv("WHISPER_BEAM_SIZE", "5"))
 WHISPER_CPU_THREADS = int(os.getenv("WHISPER_CPU_THREADS", "1"))
 
 # ---------------------------------------------------------------------------
-# Analysis engine (hybrid: Claude default, Ollama fallback)
+# Analysis engine (pluggable: claude | azure | ollama | heuristic)
 # ---------------------------------------------------------------------------
-# ENGINE = "claude" | "ollama" | "auto"
-#   auto  -> use Claude if ANTHROPIC_API_KEY is set, else Ollama, else heuristic
+# ENGINE = "claude" | "azure" | "ollama" | "heuristic" | "auto"
+#   auto -> azure if configured, else claude if key set, else ollama, else heuristic
 ANALYSIS_ENGINE = os.getenv("ANALYSIS_ENGINE", "auto").lower()
 
+# --- Anthropic Claude ---
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-4-8")
 
+# --- Azure OpenAI (GPT-4o etc.) ---
+# You get these three values from the Azure Portal after deploying a model:
+#   AZURE_OPENAI_ENDPOINT   e.g. https://callradar-openai.openai.azure.com/
+#   AZURE_OPENAI_KEY        the resource's Key 1
+#   AZURE_OPENAI_DEPLOYMENT the *deployment name* you chose (not the model name)
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY", "")
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
+
+# --- Ollama (offline fallback) ---
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
