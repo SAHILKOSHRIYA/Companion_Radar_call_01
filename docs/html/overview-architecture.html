@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Architecture Overview — Companion for CallRadar</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="topbar">
+  <div class="radar"></div>
+  <div><h1>Companion for CallRadar</h1><div class="crumbs">Documentation → Architecture Overview</div></div>
+  <div class="spacer"></div>
+  <a class="back" href="index.html">← All docs</a>
+  <button class="tt" id="tt">◐ Theme</button>
+</div>
+<main class="main">
+  <div class="eyebrow">System design</div>
+  <h1 class="title">Architecture Overview</h1>
+  <p class="lede">A layered view of the system, stage by stage — the clean data flow from raw stereo
+    recordings to the manager's dashboard, and the naming used across the codebase.</p>
+
+  <h2>1 · Data Ingestion Layer</h2>
+  <p class="section-note" style="color:var(--ink-3);font-size:13.5px">Input: raw call data.</p>
+  <pre><code>RAW CALL DATA
+│
+├── Audio
+│   └── audio/&lt;call_id&gt;.mp3
+│       ├── 8 kHz
+│       ├── Stereo
+│       ├── Left  → Agent
+│       └── Right → Customer
+│
+└── Metadata
+    └── metadata/&lt;call_id&gt;.json
+        ├── Customer Name
+        ├── Agent Name
+        └── Timestamps</code></pre>
+
+  <h2>2 · Speech Processing Layer</h2>
+  <p style="color:var(--ink-3);font-size:13.5px">Speech-to-text &amp; speaker separation.</p>
+  <pre><code>SPEECH PROCESSING
+│
+├── Channel Separation
+│   ├── Left Channel  → Agent Audio
+│   └── Right Channel → Customer Audio
+│
+├── Audio Conversion
+│   └── Stereo → 16 kHz Mono WAV
+│
+├── Speech Recognition
+│   └── faster-whisper
+│
+└── Transcript Reconstruction
+    ├── Timestamp ordering
+    ├── Speaker labels
+    ├── Word timings
+    └── Reversed-channel correction</code></pre>
+
+  <h2>3 · Conversation Intelligence Layer</h2>
+  <p style="color:var(--ink-3);font-size:13.5px">The analysis engine.</p>
+  <pre><code>CONVERSATION INTELLIGENCE
+│
+├── Intent Detection
+├── Mood Analysis
+│   └── Start → End → Mood Shift
+├── Resolution Detection
+├── Call Summary
+│   └── ≤ 40 words
+├── Attention / Risk Score
+│   └── 0 – 100
+└── Evidence Extraction
+    ├── Timestamp
+    ├── Quote
+    └── Speaker</code></pre>
+
+  <h2>4 · Evidence Validation Layer</h2>
+  <p style="color:var(--ink-3);font-size:13.5px">Evidence verification engine.</p>
+  <pre><code>AI ANALYSIS
+     │
+     ▼
+EVIDENCE VERIFICATION
+     │
+     ├── Match Timestamp
+     ├── Match Speaker
+     ├── Normalize Quote
+     ├── Exact Text Match
+     └── ≥ 60% Word Overlap
+              │
+              ▼
+       Evidence Score</code></pre>
+  <div class="callout">Every AI judgment is checked against the actual transcript to verify that the
+    supporting evidence is grounded in the conversation.</div>
+
+  <h2>5 · Quality &amp; Compliance Layer</h2>
+  <p style="color:var(--ink-3);font-size:13.5px">Quality &amp; compliance engine.</p>
+  <pre><code>QUALITY &amp; COMPLIANCE
+│
+├── Greeting Check
+├── Identity Verification
+├── Action Confirmation
+├── Empathy Check
+├── Repeated Question Check
+└── Proper Closing
+        │
+        ▼
+   QA Score (0–100)
+        │
+        ▼
+   Resolution Risk</code></pre>
+
+  <h2>6 · Persistence Layer</h2>
+  <p style="color:var(--ink-3);font-size:13.5px">Call intelligence database.</p>
+  <pre><code>POSTGRESQL
+│
+└── calls
+    ├── Call Metadata
+    ├── Transcript
+    ├── Analysis
+    ├── Evidence
+    ├── Attention Score
+    └── QA Results</code></pre>
+
+  <h2>7 · Backend API Layer</h2>
+  <p style="color:var(--ink-3);font-size:13.5px">CallRadar API.</p>
+  <pre><code>CALLRADAR API
+│
+├── /api/calls
+├── /api/qa
+├── /api/attention
+└── /api/eval</code></pre>
+  <h3>Data flow</h3>
+  <pre><code>PostgreSQL
+     │  READ ONLY
+     ▼
+ FastAPI
+     │  REST API
+     ▼
+ React + Vite</code></pre>
+  <p>The API reads precomputed results from PostgreSQL. Calls are <strong>not</strong> re-transcribed during API requests.</p>
+
+  <h2>8 · Frontend / Dashboard Layer</h2>
+  <p style="color:var(--ink-3);font-size:13.5px">CallRadar Command Center.</p>
+  <pre><code>CALLRADAR COMMAND CENTER
+│
+├── Command Center
+├── QA Dashboard
+├── Customer View
+├── Call Details
+└── Quality / Evaluation</code></pre>
+
+  <h2>Final clean architecture</h2>
+  <pre><code>┌──────────────────────────────────────────────────────────────┐
+│                    1. DATA INGESTION                         │
+│                                                              │
+│   Stereo MP3 Audio                    Call Metadata          │
+│   ├── Left  → Agent                   ├── Customer           │
+│   └── Right → Customer                ├── Agent              │
+│                                       └── Timestamps         │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                 2. SPEECH PROCESSING                         │
+│                                                              │
+│   Channel Separation → Audio Conversion → faster-whisper     │
+│                                      │                       │
+│                                      ▼                       │
+│                     Transcript Reconstruction                │
+│                    Speaker + Timestamp + Words               │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│              3. CONVERSATION INTELLIGENCE                    │
+│                                                              │
+│   Intent │ Mood │ Resolution │ Summary │ Attention │ Evidence │
+│                                                              │
+│   AI Engines: Claude / Azure / Ollama / Heuristic            │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                4. EVIDENCE VERIFICATION                      │
+│                                                              │
+│   Timestamp + Speaker + Quote                                │
+│                    │                                         │
+│                    ▼                                         │
+│             Transcript Validation                             │
+│                    │                                         │
+│                    ▼                                         │
+│              Evidence Score                                  │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│             5. QUALITY &amp; COMPLIANCE ENGINE                   │
+│                                                              │
+│   Greeting │ Identity │ Confirmation │ Empathy │ Closing     │
+│                         │                                    │
+│                         ▼                                    │
+│                    QA Score + Risk                           │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  6. CALL INTELLIGENCE DB                     │
+│                         PostgreSQL                            │
+│                                                              │
+│        Transcript + Analysis + Evidence + QA                 │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                     READ ONLY
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     7. CALLRADAR API                         │
+│                         FastAPI                               │
+│                                                              │
+│       Calls │ QA │ Attention │ Evaluation                    │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                8. CALLRADAR COMMAND CENTER                   │
+│                       React + Vite                            │
+│                                                              │
+│     Dashboard │ QA │ Customers │ Call View │ Quality         │
+└──────────────────────────────────────────────────────────────┘</code></pre>
+
+  <h2>One-line pipeline</h2>
+  <pre><code>MP3 (Stereo)
+    ↓
+Channel Separation
+    ↓
+Whisper Transcription
+    ↓
+Transcript Reconstruction
+    ↓
+Conversation Intelligence
+    ↓
+Evidence Verification
+    ↓
+Quality &amp; Compliance
+    ↓
+PostgreSQL
+    ↓
+FastAPI
+    ↓
+React Dashboard</code></pre>
+
+  <h2>Architecture naming</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Component</th><th>Recommended Name</th></tr></thead>
+    <tbody>
+      <tr><td>Raw Data</td><td>Data Ingestion</td></tr>
+      <tr><td>Transcribe</td><td>Speech Processing</td></tr>
+      <tr><td>Analyze</td><td>Conversation Intelligence</td></tr>
+      <tr><td>Verify Evidence</td><td>Evidence Verification</td></tr>
+      <tr><td>QA / Compliance</td><td>Quality &amp; Compliance</td></tr>
+      <tr><td>PostgreSQL</td><td>Call Intelligence Database</td></tr>
+      <tr><td>FastAPI</td><td>CallRadar API</td></tr>
+      <tr><td>React + Vite</td><td>CallRadar Command Center</td></tr>
+      <tr><td>Evaluate</td><td>Evaluation Engine</td></tr>
+    </tbody>
+  </table></div>
+
+  <footer><strong>Companion for CallRadar</strong> — Architecture Overview. See also
+    <a href="architecture.html">Architecture &amp; design</a>, <a href="formulas.html">Formulas</a>,
+    <a href="index.html">the complete documentation</a>. &nbsp;|&nbsp; Team: Sahil Koshriya · Sakshi.</footer>
+</main>
+<script>
+  const root=document.documentElement,s=localStorage.getItem("cfcr-theme");
+  if(s)root.setAttribute("data-theme",s);
+  document.getElementById("tt").onclick=()=>{const c=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");const n=c==="dark"?"light":"dark";root.setAttribute("data-theme",n);localStorage.setItem("cfcr-theme",n)};
+</script>
+</body>
+</html>
