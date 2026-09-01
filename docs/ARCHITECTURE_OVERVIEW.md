@@ -1,4 +1,4 @@
-# Companion for CallRadar — Architecture Overview
+# Companion for CallRadar — Detailed Step-by-Step Architecture
 
 A layered view of the system, stage by stage, with the clean data flow and the naming used across the codebase.
 

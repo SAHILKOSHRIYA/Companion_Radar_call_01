@@ -13,7 +13,7 @@ You get audio, not transcripts. CallRadar builds everything from the raw `.mp3`s
 | Document | Live (rendered) | PDF | Markdown |
 |---|---|---|---|
 | **Complete documentation** | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/index.html) | [PDF](docs/pdf/Companion-for-CallRadar-Complete-Documentation.pdf) | — |
-| Architecture Overview (layered) | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/overview-architecture.html) | [PDF](docs/pdf/Architecture-Overview.pdf) | [MD](docs/ARCHITECTURE_OVERVIEW.md) |
+| Detailed Step-by-Step Architecture | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/overview-architecture.html) | [PDF](docs/pdf/Detailed-Step-by-Step-Architecture.pdf) | [MD](docs/ARCHITECTURE_OVERVIEW.md) |
 | Architecture & design | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/architecture.html) | [PDF](docs/pdf/Architecture.pdf) | [MD](docs/ARCHITECTURE.md) |
 | Formulas & notation | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/formulas.html) | [PDF](docs/pdf/Formulas-and-Notation.pdf) | [MD](docs/HANDWRITTEN_REFERENCE.md) |
 | Dashboard walkthrough | [Open →](https://sahilkoshriya.github.io/Companion_Radar_call_01/html/demo.html) | [PDF](docs/pdf/Walkthrough.pdf) | [MD](docs/DEMO.md) |
